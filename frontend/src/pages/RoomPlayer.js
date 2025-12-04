@@ -7,13 +7,11 @@ function RoomPlayer() {
   const { roomName } = useParams();
   const navigate = useNavigate();
   
-  // Данные API
   const [room, setRoom] = useState(null);
   const [movie, setMovie] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Данные Чата и Сокетов
   const [messages, setMessages] = useState([]);
   const [messageInput, setMessageInput] = useState('');
   const [isConnected, setIsConnected] = useState(false);
@@ -21,21 +19,15 @@ function RoomPlayer() {
   const wsRef = useRef(null); 
   const videoRef = useRef(null); 
   
-  // Флаги
   const isRemoteUpdate = useRef(false);
   const hasSyncedInitial = useRef(false);
   const pendingSync = useRef(null);
 
-  // === ИСПРАВЛЕНИЕ ЗДЕСЬ ===
-  // Получаем имя из хранилища
   const storedUser = localStorage.getItem('username');
-  // Если имени нет - считаем пользователя гостем
   const isGuest = !storedUser;
-  // Имя для отображения (если гость, то 'Аноним')
   const username = storedUser || 'Аноним';
-  // ==========================
 
-  // 1. Загрузка данных (HTTP)
+  // 1. Загрузка данных
   useEffect(() => {
     const fetchRoomData = async () => {
       try {
@@ -44,12 +36,10 @@ function RoomPlayer() {
 
         if (roomRes.data.video) {
             try {
-                // Если video пришло как ID
                 if (typeof roomRes.data.video === 'number') {
                     const movieRes = await api.get(`movies/${roomRes.data.video}/`);
                     setMovie(movieRes.data);
                 } else {
-                    // Если video пришло как объект (зависит от сериализатора)
                     setMovie(roomRes.data.video);
                 }
             } catch { console.log("Фильм не найден"); }
@@ -60,7 +50,9 @@ function RoomPlayer() {
             const formattedMessages = messagesRes.data.map(msg => ({
                 username: msg.user_name,
                 message: msg.content,
-                timestamp: msg.timestamp
+                timestamp: msg.timestamp,
+                // Если есть аватарка в истории (надо бы добавить в сериализатор, но пока заглушка)
+                avatar: null 
             }));
             setMessages(formattedMessages);
         } catch (err) { console.error("Ошибка чата:", err); }
@@ -75,20 +67,14 @@ function RoomPlayer() {
     fetchRoomData();
   }, [roomName]);
 
-  // 2. Подключение к WebSocket
+  // 2. WebSocket
   useEffect(() => {
     if (!roomName) return;
+
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    let wsUrl;
-    if (process.env.NODE_ENV === 'production') {
-        // В докере: ws://domain.com/ws/...
-        wsUrl = `${protocol}//${window.location.host}/ws/player/${roomName}/`;
-    } else {
-        // Локально: ws://192.168.X.X:8000/ws/...
-        // Тут тоже лучше использовать IP
-        const LOCAL_IP = '192.168.1.116'; // Или твой реальный IP
-        wsUrl = `ws://${LOCAL_IP}:8000/ws/player/${roomName}/`;
-    }
+    const host = window.location.host;
+    const wsUrl = `${protocol}//${host}/ws/player/${roomName}/`;
+    
     const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
 
@@ -96,13 +82,30 @@ function RoomPlayer() {
       console.log('✅ WebSocket подключен');
       setIsConnected(true);
       sendVideoEvent('request_sync');
+      
+      // === ФИКС ПРОБЛЕМЫ С ЗАВИСАНИЕМ ВИДЕО ===
+      // Если мы одни в комнате, нам никто не ответит на request_sync.
+      // Через 1.5 секунды считаем, что мы главные и снимаем блокировку.
+      setTimeout(() => {
+          if (!hasSyncedInitial.current) {
+              console.log("⏱️ Таймаут синхронизации: мы одни, разблокируем видео.");
+              hasSyncedInitial.current = true;
+              // Если видео уже загружено, убираем muted (визуально, в коде ниже)
+              // Принудительно обновляем компонент, чтобы убрать muted (хотя ref работает напрямую)
+              if (videoRef.current) videoRef.current.muted = false;
+          }
+      }, 1500);
     };
 
     ws.onmessage = (event) => {
       const data = JSON.parse(event.data);
-      if (data.type === 'chat_message') {
+      
+      // === ФИКС УВЕДОМЛЕНИЙ ===
+      // Теперь обрабатываем тип 'system'
+      if (data.type === 'chat_message' || data.type === 'system') {
         setMessages((prev) => [...prev, data]);
-      } else if (data.type === 'video_event') {
+      } 
+      else if (data.type === 'video_event') {
         handleRemoteVideoEvent(data);
       }
     };
@@ -117,10 +120,8 @@ function RoomPlayer() {
     };
   }, [roomName]);
 
-  // === ВСПОМОГАТЕЛЬНАЯ ФУНКЦИЯ ПРИМЕНЕНИЯ СИНХРОНИЗАЦИИ ===
   const applySyncData = (data) => {
       if (!videoRef.current) return;
-      
       const diff = Math.abs(videoRef.current.currentTime - data.currentTime);
       
       if (diff > 0.5 || videoRef.current.currentTime === 0) {
@@ -130,16 +131,14 @@ function RoomPlayer() {
       if (data.paused) {
           videoRef.current.pause();
       } else {
-          videoRef.current.play().catch(e => {
-              console.log("Autoplay blocked:", e);
-          });
+          videoRef.current.play().catch(e => console.log("Autoplay blocked:", e));
       }
       
       hasSyncedInitial.current = true;
       pendingSync.current = null;
+      videoRef.current.muted = false; // Включаем звук после синхронизации
   };
 
-  // --- ЛОГИКА ВИДЕО ---
   const handleRemoteVideoEvent = (data) => {
     if (data.action === 'request_sync') {
         if (videoRef.current && videoRef.current.readyState >= 1) {
@@ -164,7 +163,6 @@ function RoomPlayer() {
     }
 
     if (!videoRef.current) return;
-
     isRemoteUpdate.current = true;
 
     if (data.action === 'play') {
@@ -190,14 +188,12 @@ function RoomPlayer() {
 
   const sendVideoEvent = (action) => {
     if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN || isRemoteUpdate.current) return;
-
     wsRef.current.send(JSON.stringify({
       type: action, 
       currentTime: videoRef.current ? videoRef.current.currentTime : 0
     }));
   };
 
-  // --- ЛОГИКА ЧАТА ---
   const handleSendMessage = () => {
     if (!messageInput.trim() || !wsRef.current) return;
     wsRef.current.send(JSON.stringify({
@@ -211,7 +207,17 @@ function RoomPlayer() {
   if (loading) return <div className="loading">Загрузка кинозала...</div>;
   if (error) return <div className="error-screen"><h2>❌ {error}</h2><button onClick={() => navigate('/rooms')}>Назад</button></div>;
 
-  const videoSrc = movie?.video || movie?.video_url;
+  // Формируем правильный URL видео
+  let videoSrc = null;
+  if (movie) {
+      if (movie.video) {
+          // Если это локальный файл, убедимся, что путь правильный
+          // В Docker фронт и бэк на одном домене, поэтому просто /media/... сработает
+          videoSrc = movie.video;
+      } else if (movie.video_url) {
+          videoSrc = movie.video_url;
+      }
+  }
 
   return (
     <div className="room-player-page">
@@ -228,7 +234,8 @@ function RoomPlayer() {
                         onPlay={() => sendVideoEvent('play')}
                         onPause={() => sendVideoEvent('pause')}
                         onSeeked={() => sendVideoEvent('seek')}
-                        muted={!hasSyncedInitial.current}
+                        // Muted убираем программно после синхронизации или таймаута
+                        muted={!hasSyncedInitial.current} 
                     >
                         <source src={videoSrc} type="video/mp4" />
                         Ваш браузер не поддерживает видео.
@@ -257,15 +264,37 @@ function RoomPlayer() {
             </div>
             <div className="chat-messages">
                 <div className="system-msg">Добро пожаловать в комнату!</div>
-                {messages.map((msg, index) => (
-                    <div key={index} className={`chat-msg ${msg.username === username ? 'my-msg' : ''}`}>
-                        <span className="msg-user">{msg.username}:</span>
-                        <span className="msg-text">{msg.message}</span>
-                    </div>
-                ))}
+                
+                {messages.map((msg, index) => {
+                    if (msg.type === 'system') {
+                        return (
+                            <div key={index} className="system-msg fade-in">
+                                {msg.message}
+                            </div>
+                        );
+                    }
+
+                    const isMyMsg = msg.username === username;
+                    return (
+                        <div key={index} className={`chat-msg ${isMyMsg ? 'my-msg' : ''}`}>
+                            <div className="chat-avatar-container">
+                                {msg.avatar ? (
+                                    <img src={msg.avatar} alt="ava" className="chat-avatar-img" />
+                                ) : (
+                                    <div className="chat-avatar-placeholder">
+                                        {msg.username ? msg.username[0].toUpperCase() : '?'}
+                                    </div>
+                                )}
+                            </div>
+                            <div className="chat-content">
+                                <span className="msg-user">{msg.username}</span>
+                                <span className="msg-text">{msg.message}</span>
+                            </div>
+                        </div>
+                    );
+                })}
             </div>
             <div className="chat-input-area">
-                {/* Здесь мы используем isGuest */}
                 {isGuest ? (
                     <div style={{padding: '10px', color: '#777', textAlign: 'center', width: '100%', fontSize: '0.9rem'}}>
                         <span style={{cursor: 'pointer', textDecoration: 'underline'}} onClick={() => navigate('/login')}>Войдите</span>, чтобы общаться

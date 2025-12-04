@@ -12,6 +12,7 @@ services:
       - ./backend:/app
       - ./backend/db.sqlite3:/app/db.sqlite3
       - ./backend/media:/app/media            # <-- Бэкенд кладет файлы сюда
+      - ./backend/staticfiles:/app/staticfiles
     environment:
       - REDIS_HOST=redis
       - DJANGO_ALLOWED_HOSTS=*
@@ -26,5 +27,6 @@ services:
       # === ДОБАВЬ ЭТУ СТРОКУ ===
       # Фронтенд (Nginx) берет файлы отсюда, чтобы показать их пользователю
       - ./backend/media:/usr/share/nginx/html/media
+      - ./backend/staticfiles:/usr/share/nginx/html/static
     depends_on:
       - backend

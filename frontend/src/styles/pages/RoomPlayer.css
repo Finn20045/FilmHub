@@ -126,6 +126,88 @@
     color: #e0e0e0;
 }
 
+/* === ОБНОВЛЕННЫЕ СТИЛИ ЧАТА === */
+
+/* Контейнер сообщения */
+.chat-msg {
+    display: flex;
+    align-items: flex-start; /* Выравнивание по верху */
+    gap: 10px;
+    margin-bottom: 12px;
+    padding: 8px;
+    background: #2d3436; /* Чуть светлее фона */
+    border-radius: 8px;
+    transition: all 0.2s;
+}
+
+.my-msg {
+    background: #3a3f4b; /* Мои сообщения чуть другого цвета */
+    border-left: 3px solid #6c5ce7; /* Фиолетовая полоска слева */
+}
+
+/* Аватарки */
+.chat-avatar-container {
+    flex-shrink: 0;
+}
+
+.chat-avatar-img {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 1px solid #555;
+}
+
+.chat-avatar-placeholder {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: #6c5ce7;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 0.9rem;
+}
+
+/* Текст сообщения */
+.chat-content {
+    display: flex;
+    flex-direction: column;
+}
+
+.msg-user {
+    font-weight: bold;
+    font-size: 0.85rem;
+    color: #a29bfe;
+    margin-bottom: 2px;
+}
+
+.msg-text {
+    font-size: 0.95rem;
+    color: #dfe6e9;
+    word-break: break-word; /* Чтобы длинные слова переносились */
+}
+
+/* Системные сообщения */
+.system-msg {
+    text-align: center;
+    font-size: 0.85rem;
+    color: #636e72;
+    margin: 10px 0;
+    font-style: italic;
+}
+
+.fade-in {
+    animation: fadeIn 0.5s ease-in;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(5px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
 /* === АДАПТИВНОСТЬ === */
 @media (max-width: 768px) {
     .room-player-page {
