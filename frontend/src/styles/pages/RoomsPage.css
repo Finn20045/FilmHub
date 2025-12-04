@@ -6,6 +6,59 @@
     padding: 20px 0;
 }
 
+.rooms-header {
+    text-align: center;
+    margin-bottom: 40px;
+    padding: 20px;
+    background: #1a1a1a;
+    border-radius: 16px;
+    border: 1px solid #333;
+}
+
+.rooms-header h1 {
+    margin: 0 0 10px 0;
+    font-size: 3rem; /* Чуть увеличили шрифт */
+    background: linear-gradient(90deg, #a29bfe, #6c5ce7); /* Фиолетовый градиент в стиль сайта */
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    font-weight: 800;
+}
+
+/* === 1. ЗАГОЛОВОК (Убираем черный ящик) === */
+.rooms-header {
+    text-align: center;
+    margin-bottom: 40px;
+    padding: 20px 0; /* Убрали боковые отступы */
+    
+    /* Убрали фон и границы, чтобы исчез "черный прямоугольник" */
+    background: transparent; 
+    border: none; 
+}
+
+/* === СТИЛИ ДЛЯ КНОПКИ СОЗДАНИЯ === */
+.rooms-header .btn-primary {
+    margin-top: 25px; /* <--- ГЛАВНОЕ: Отступ от текста сверху */
+    
+    padding: 12px 30px;
+    font-size: 1.1rem;
+    background: linear-gradient(90deg, #6c5ce7, #a29bfe);
+    border: none;
+    border-radius: 50px; /* Делаем полностью круглой */
+    color: white;
+    font-weight: bold;
+    cursor: pointer;
+    box-shadow: 0 4px 15px rgba(108, 92, 231, 0.4); /* Красивая тень */
+    transition: transform 0.2s, box-shadow 0.2s;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px; /* Расстояние между плюсиком и текстом */
+}
+
+.rooms-header .btn-primary:hover {
+    transform: translateY(-3px); /* Эффект парения при наведении */
+    box-shadow: 0 6px 20px rgba(108, 92, 231, 0.6);
+}
+
 /* Карточка */
 .room-card-modern {
     background: #1e1e1e;
@@ -103,22 +156,39 @@
     background: #6c5ce7;
 }
 
+/* === 2. КНОПКА УДАЛЕНИЯ (Стиль "Стекло") === */
 .delete-room-btn {
     position: absolute;
     top: 10px;
     left: 10px;
-    background: rgba(255, 0, 0, 0.7);
-    border: none;
-    color: white;
-    width: 30px;
-    height: 30px;
-    border-radius: 50%;
+    
+    /* Полупрозрачный темный фон (Стекло) вместо красного */
+    background: rgba(0, 0, 0, 0.5); 
+    backdrop-filter: blur(4px); /* Размытие фона под кнопкой */
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    
+    color: #ff7675; /* Иконка мусорки нежно-красного цвета */
+    
+    width: 32px;
+    height: 32px;
+    border-radius: 8px; /* Скруглим квадратом, выглядит современнее */
+    
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: background 0.2s;
+    
+    transition: all 0.3s ease;
+    z-index: 10;
+    opacity: 0.7; /* Слегка прозрачная в обычном состоянии */
 }
+
+/* При наведении становится яркой и красной */
 .delete-room-btn:hover {
-    background: red;
+    background: #e74c3c; /* Красный фон */
+    border-color: #e74c3c;
+    color: white; /* Белая иконка */
+    opacity: 1;
+    transform: scale(1.1);
+    box-shadow: 0 4px 10px rgba(231, 76, 60, 0.4);
 }

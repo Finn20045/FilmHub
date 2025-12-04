@@ -127,6 +127,7 @@ CSRF_TRUSTED_ORIGINS = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
     "http://192.168.1.116",
+    "http://26.87.64.9"
 ]
 
 SESSION_COOKIE_SAMESITE = 'Lax'
