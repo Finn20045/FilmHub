@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../Services/api';
 import RoomList from '../components/Rooms/RoomList';
@@ -74,8 +75,10 @@ function Rooms() {
 
   const handleCreateRoom = async (e) => {
     e.preventDefault();
-    setError(null);
+    //setError(null);
     
+    const loadingToast = toast.loading('Создаем комнату...');
+
     const formData = new FormData();
     formData.append('name', createFormData.name);
     formData.append('description', createFormData.description);
@@ -95,13 +98,15 @@ function Rooms() {
       const response = await api.post('rooms/', formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
+      toast.dismiss(loadingToast); // Убираем спиннер
+      toast.success('Комната успешно создана!'); // Показываем успех
       setShowCreateModal(false);
       setCreateFormData({ name: '', description: '', max_participants: 10, password: '', movie_id: '' });
       setVideoFile(null);
       navigate(`/player/${response.data.name}`);
     } catch (error) {
-      console.error(error);
-      setError('Ошибка создания. Возможно, имя занято.');
+      toast.dismiss(loadingToast);
+      toast.error('Ошибка создания. Возможно, имя занято.'); // Показываем ошибку
     }
   };
 

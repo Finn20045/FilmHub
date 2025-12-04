@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { api } from '../../Services/api'; // Импорт нашего api
+import { api } from '../../Services/api';
+import toast from 'react-hot-toast';
 import '../../styles/components/Auth.css';
 
 function Login({ onLogin }) {
@@ -15,13 +16,13 @@ function Login({ onLogin }) {
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
-    setError('');
+    toast.error('');
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
-    setError('');
+    toast.error('');
 
     try {
       // Отправляем реальный запрос
@@ -38,9 +39,9 @@ function Login({ onLogin }) {
     } catch (err) {
       console.error(err);
       if (err.response && err.response.data && err.response.data.error) {
-          setError(err.response.data.error);
+          toast.error(err.response.data.error);
       } else {
-          setError('Ошибка соединения с сервером');
+          toast.error('Ошибка соединения с сервером');
       }
     } finally {
       setLoading(false);

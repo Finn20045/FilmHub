@@ -57,7 +57,7 @@ class PlayerConsumer(AsyncWebsocketConsumer):
         try:
             data = json.loads(text_data)
             event_type = data.get('type')
-
+            
             # === ЧАТ ===
             if event_type == 'chat_message':
                 message = data.get('message')
@@ -79,6 +79,26 @@ class PlayerConsumer(AsyncWebsocketConsumer):
                         'avatar': user_data['avatar'] # <--- Новое поле
                     }
                 )
+
+            # === МОДЕРАЦИЯ (КИК) ===
+            elif event_type == 'kick_user':
+                target_username = data.get('username')
+                request_user = self.scope['user']
+
+                # Проверка: кикать может только владелец комнаты
+                # Нам нужно синхронно получить комнату и проверить владельца
+                is_owner = await self.check_is_owner(request_user.username)
+                
+                if is_owner:
+                    # Отправляем всем сообщение, что юзер кикнут
+                    # Клиент "жертвы" сам обработает это и выйдет
+                    await self.channel_layer.group_send(
+                        self.room_group_name,
+                        {
+                            'type': 'kick_event',
+                            'kicked_username': target_username
+                        }
+                    )
 
             # === ВИДЕО ===
             elif event_type in ['play', 'pause', 'seek', 'sync', 'change_video', 'request_sync', 'response_sync']:
@@ -118,6 +138,13 @@ class PlayerConsumer(AsyncWebsocketConsumer):
                 'data': event['payload']
             }))
 
+    # Метод отправки события кика
+    async def kick_event(self, event):
+        await self.send(text_data=json.dumps({
+            'type': 'user_kicked',
+            'kicked_username': event['kicked_username']
+        }))
+
     # === РАБОТА С БД ===
 
     @database_sync_to_async
@@ -156,3 +183,12 @@ class PlayerConsumer(AsyncWebsocketConsumer):
                 Message.objects.create(user=user, room=room, content=content)
         except Exception as e:
             print(f"Error saving message: {e}")
+
+    # Проверка владельца в БД
+    @database_sync_to_async
+    def check_is_owner(self, username):
+        try:
+            room = Room.objects.get(name=self.room_name)
+            return room.owner.username == username
+        except Exception:
+            return False

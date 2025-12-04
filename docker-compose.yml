@@ -27,6 +27,6 @@ services:
       # === ДОБАВЬ ЭТУ СТРОКУ ===
       # Фронтенд (Nginx) берет файлы отсюда, чтобы показать их пользователю
       - ./backend/media:/usr/share/nginx/html/media
-      - ./backend/staticfiles:/usr/share/nginx/html/static
+      - ./backend/staticfiles:/usr/share/nginx/html/django_static_files
     depends_on:
       - backend

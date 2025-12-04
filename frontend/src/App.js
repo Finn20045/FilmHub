@@ -1,6 +1,7 @@
 import './styles/global.css';
 import './App.css';
 import React, { useState, useEffect } from 'react';
+import { Toaster } from 'react-hot-toast';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Movies from './pages/Movies';
 import Header from './components/Layout/Header';
@@ -55,6 +56,21 @@ function App() {
   return (
     <Router>
       <div className="App">
+        <Toaster 
+            position="top-center" 
+            toastOptions={{
+                style: {
+                    background: '#333',
+                    color: '#fff',
+                },
+                success: {
+                    iconTheme: {
+                        primary: '#6c5ce7',
+                        secondary: '#fff',
+                    },
+                },
+            }}
+        />
         <Header 
           currentPage={currentPage} 
           onNavigate={setCurrentPage}

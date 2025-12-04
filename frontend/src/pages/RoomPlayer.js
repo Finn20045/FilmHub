@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import toast from 'react-hot-toast'; // <--- Новые уведомления
 import { api } from '../Services/api';
 import '../styles/pages/RoomPlayer.css';
 
@@ -10,8 +11,7 @@ function RoomPlayer() {
   const [room, setRoom] = useState(null);
   const [movie, setMovie] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-
+  
   const [messages, setMessages] = useState([]);
   const [messageInput, setMessageInput] = useState('');
   const [isConnected, setIsConnected] = useState(false);
@@ -26,6 +26,10 @@ function RoomPlayer() {
   const storedUser = localStorage.getItem('username');
   const isGuest = !storedUser;
   const username = storedUser || 'Аноним';
+
+  // Проверка: является ли текущий юзер владельцем
+  // room.owner_name приходит с бэкенда
+  const isOwner = room && room.owner_name === username;
 
   // 1. Загрузка данных
   useEffect(() => {
@@ -51,21 +55,20 @@ function RoomPlayer() {
                 username: msg.user_name,
                 message: msg.content,
                 timestamp: msg.timestamp,
-                // Если есть аватарка в истории (надо бы добавить в сериализатор, но пока заглушка)
                 avatar: null 
             }));
             setMessages(formattedMessages);
         } catch (err) { console.error("Ошибка чата:", err); }
 
       } catch (err) {
-        console.error(err);
-        setError('Комната не найдена или доступ запрещен');
+        toast.error('Комната не найдена или удалена');
+        navigate('/rooms');
       } finally {
         setLoading(false);
       }
     };
     fetchRoomData();
-  }, [roomName]);
+  }, [roomName, navigate]);
 
   // 2. WebSocket
   useEffect(() => {
@@ -79,19 +82,13 @@ function RoomPlayer() {
     wsRef.current = ws;
 
     ws.onopen = () => {
-      console.log('✅ WebSocket подключен');
+      console.log('✅ Connected');
       setIsConnected(true);
       sendVideoEvent('request_sync');
       
-      // === ФИКС ПРОБЛЕМЫ С ЗАВИСАНИЕМ ВИДЕО ===
-      // Если мы одни в комнате, нам никто не ответит на request_sync.
-      // Через 1.5 секунды считаем, что мы главные и снимаем блокировку.
       setTimeout(() => {
           if (!hasSyncedInitial.current) {
-              console.log("⏱️ Таймаут синхронизации: мы одни, разблокируем видео.");
               hasSyncedInitial.current = true;
-              // Если видео уже загружено, убираем muted (визуально, в коде ниже)
-              // Принудительно обновляем компонент, чтобы убрать muted (хотя ref работает напрямую)
               if (videoRef.current) videoRef.current.muted = false;
           }
       }, 1500);
@@ -100,43 +97,73 @@ function RoomPlayer() {
     ws.onmessage = (event) => {
       const data = JSON.parse(event.data);
       
-      // === ФИКС УВЕДОМЛЕНИЙ ===
-      // Теперь обрабатываем тип 'system'
-      if (data.type === 'chat_message' || data.type === 'system') {
+      // === НОВАЯ ЛОГИКА: ОБРАБОТКА КИКА ===
+      if (data.type === 'user_kicked') {
+          if (data.kicked_username === username) {
+              // Если кикнули МЕНЯ
+              ws.close();
+              navigate('/rooms');
+              toast.error('⛔ Вас выгнали из комнаты');
+          } else {
+              // Если кикнули КОГО-ТО ДРУГОГО
+              toast(`${data.kicked_username} был изгнан`, { icon: '👢' });
+          }
+          return;
+      }
+      // ====================================
+
+      if (data.type === 'chat_message') {
         setMessages((prev) => [...prev, data]);
       } 
+      else if (data.type === 'system') {
+          // Вместо текста в чате показываем красивый Toast
+          toast(data.message, {
+              icon: '🔔',
+              style: { borderRadius: '10px', background: '#333', color: '#fff' },
+          });
+      }
       else if (data.type === 'video_event') {
         handleRemoteVideoEvent(data);
       }
     };
 
     ws.onclose = () => {
-      console.log('❌ WebSocket отключен');
       setIsConnected(false);
     };
 
     return () => {
       ws.close();
     };
-  }, [roomName]);
+  }, [roomName, username, navigate]);
 
+  // === ФУНКЦИЯ КИКА (ВЫЗЫВАЕТСЯ ПРИ КЛИКЕ НА ИМЯ) ===
+  const handleUserClick = (targetUser) => {
+      // Можно кикнуть только если:
+      // 1. Я владелец
+      // 2. Цель - не я сам
+      if (isOwner && targetUser !== username) {
+          if (window.confirm(`Выгнать пользователя ${targetUser}?`)) {
+              wsRef.current.send(JSON.stringify({
+                  type: 'kick_user',
+                  username: targetUser
+              }));
+          }
+      }
+  };
+
+  // ... (applySyncData, handleRemoteVideoEvent, handleVideoLoadedMetadata, sendVideoEvent) ...
+  // Оставь эти функции как были в прошлом варианте
   const applySyncData = (data) => {
       if (!videoRef.current) return;
       const diff = Math.abs(videoRef.current.currentTime - data.currentTime);
-      
       if (diff > 0.5 || videoRef.current.currentTime === 0) {
           videoRef.current.currentTime = data.currentTime;
       }
-      
-      if (data.paused) {
-          videoRef.current.pause();
-      } else {
-          videoRef.current.play().catch(e => console.log("Autoplay blocked:", e));
-      }
-      
+      if (data.paused) videoRef.current.pause();
+      else videoRef.current.play().catch(() => {});
       hasSyncedInitial.current = true;
       pendingSync.current = null;
-      videoRef.current.muted = false; // Включаем звук после синхронизации
+      videoRef.current.muted = false;
   };
 
   const handleRemoteVideoEvent = (data) => {
@@ -150,7 +177,6 @@ function RoomPlayer() {
         }
         return;
     }
-
     if (data.action === 'response_sync') {
         if (!hasSyncedInitial.current) {
             if (videoRef.current && videoRef.current.readyState >= 1) {
@@ -161,23 +187,16 @@ function RoomPlayer() {
         }
         return;
     }
-
     if (!videoRef.current) return;
     isRemoteUpdate.current = true;
-
-    if (data.action === 'play') {
-        videoRef.current.play().catch(e => console.log("Autoplay blocked:", e));
-    } else if (data.action === 'pause') {
-        videoRef.current.pause();
-    } else if (data.action === 'seek') {
+    if (data.action === 'play') videoRef.current.play().catch(() => {});
+    else if (data.action === 'pause') videoRef.current.pause();
+    else if (data.action === 'seek') {
         if (Math.abs(videoRef.current.currentTime - data.data.currentTime) > 1) {
             videoRef.current.currentTime = data.data.currentTime;
         }
     }
-
-    setTimeout(() => {
-        isRemoteUpdate.current = false;
-    }, 500);
+    setTimeout(() => { isRemoteUpdate.current = false; }, 500);
   };
 
   const handleVideoLoadedMetadata = () => {
@@ -204,19 +223,12 @@ function RoomPlayer() {
     setMessageInput('');
   };
 
-  if (loading) return <div className="loading">Загрузка кинозала...</div>;
-  if (error) return <div className="error-screen"><h2>❌ {error}</h2><button onClick={() => navigate('/rooms')}>Назад</button></div>;
-
-  // Формируем правильный URL видео
+  if (loading) return <div className="loading">Загрузка...</div>;
+  
   let videoSrc = null;
   if (movie) {
-      if (movie.video) {
-          // Если это локальный файл, убедимся, что путь правильный
-          // В Docker фронт и бэк на одном домене, поэтому просто /media/... сработает
-          videoSrc = movie.video;
-      } else if (movie.video_url) {
-          videoSrc = movie.video_url;
-      }
+      if (movie.video) videoSrc = movie.video;
+      else if (movie.video_url) videoSrc = movie.video_url;
   }
 
   return (
@@ -234,17 +246,12 @@ function RoomPlayer() {
                         onPlay={() => sendVideoEvent('play')}
                         onPause={() => sendVideoEvent('pause')}
                         onSeeked={() => sendVideoEvent('seek')}
-                        // Muted убираем программно после синхронизации или таймаута
-                        muted={!hasSyncedInitial.current} 
+                        muted={!hasSyncedInitial.current}
                     >
                         <source src={videoSrc} type="video/mp4" />
-                        Ваш браузер не поддерживает видео.
                     </video>
                 ) : (
-                    <div className="no-video-placeholder">
-                        <h3>🎬 Фильм не выбран</h3>
-                        <p>Ожидаем выбора фильма...</p>
-                    </div>
+                    <div className="no-video-placeholder"><h3>🎬 Фильм не выбран</h3></div>
                 )}
             </div>
             
@@ -252,7 +259,7 @@ function RoomPlayer() {
                 <h1>{room?.name}</h1>
                 <p className="movie-title">
                    Фильм: <span>{movie?.title || 'Загрузка...'}</span>
-                   {isConnected ? <span style={{color:'#00b894', marginLeft:'15px'}}>● Онлайн</span> : <span style={{color:'red', marginLeft:'15px'}}>● Оффлайн</span>}
+                   {isConnected ? <span style={{color:'#00b894', marginLeft:'15px'}}>● Онлайн</span> : null}
                 </p>
             </div>
         </div>
@@ -266,14 +273,6 @@ function RoomPlayer() {
                 <div className="system-msg">Добро пожаловать в комнату!</div>
                 
                 {messages.map((msg, index) => {
-                    if (msg.type === 'system') {
-                        return (
-                            <div key={index} className="system-msg fade-in">
-                                {msg.message}
-                            </div>
-                        );
-                    }
-
                     const isMyMsg = msg.username === username;
                     return (
                         <div key={index} className={`chat-msg ${isMyMsg ? 'my-msg' : ''}`}>
@@ -287,7 +286,16 @@ function RoomPlayer() {
                                 )}
                             </div>
                             <div className="chat-content">
-                                <span className="msg-user">{msg.username}</span>
+                                {/* === ИМЯ СТАЛО КЛИКАБЕЛЬНЫМ === */}
+                                <span 
+                                    className="msg-user" 
+                                    style={isOwner && !isMyMsg ? {cursor: 'pointer', textDecoration: 'underline'} : {}}
+                                    onClick={() => handleUserClick(msg.username)}
+                                    title={isOwner && !isMyMsg ? "Нажмите, чтобы выгнать" : ""}
+                                >
+                                    {msg.username}
+                                </span>
+                                {/* ============================== */}
                                 <span className="msg-text">{msg.message}</span>
                             </div>
                         </div>
@@ -296,8 +304,8 @@ function RoomPlayer() {
             </div>
             <div className="chat-input-area">
                 {isGuest ? (
-                    <div style={{padding: '10px', color: '#777', textAlign: 'center', width: '100%', fontSize: '0.9rem'}}>
-                        <span style={{cursor: 'pointer', textDecoration: 'underline'}} onClick={() => navigate('/login')}>Войдите</span>, чтобы общаться
+                    <div style={{padding: '10px', color: '#777', textAlign: 'center'}}>
+                        <span onClick={() => navigate('/login')} style={{cursor:'pointer', textDecoration:'underline'}}>Войдите</span>
                     </div>
                 ) : (
                     <>

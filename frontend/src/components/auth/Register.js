@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { api } from '../../Services/api'; // Импорт api
+import { api } from '../../Services/api';
+import toast from 'react-hot-toast';
 import '../../styles/components/Auth.css';
 
 function Register({ onRegister }) {
@@ -18,22 +19,22 @@ function Register({ onRegister }) {
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
-    setError('');
+    toast.error('');
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
-    setError('');
+    toast.error('');
 
     if (formData.password !== formData.confirmPassword) {
-      setError('Пароли не совпадают');
+      toast.error('Пароли не совпадают');
       setLoading(false);
       return;
     }
 
     if (parseInt(formData.age) < 13) {
-      setError('Минимальный возраст - 13 лет');
+      toast.error('Минимальный возраст - 13 лет');
       setLoading(false);
       return;
     }
@@ -56,9 +57,9 @@ function Register({ onRegister }) {
     } catch (err) {
       console.error(err);
       if (err.response && err.response.data && err.response.data.error) {
-        setError(err.response.data.error);
+        toast.error(err.response.data.error);
       } else {
-        setError('Ошибка при регистрации. Возможно, логин занят.');
+        toast.error('Ошибка при регистрации. Возможно, логин занят.');
       }
     } finally {
       setLoading(false);
