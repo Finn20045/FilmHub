@@ -125,3 +125,33 @@
 .msg-text {
     color: #e0e0e0;
 }
+
+/* === АДАПТИВНОСТЬ === */
+@media (max-width: 768px) {
+    .room-player-page {
+        height: auto; /* Разрешаем скролл на мобильных */
+        overflow-y: auto;
+    }
+
+    .player-container {
+        flex-direction: column; /* Ставим видео и чат друг под другом */
+    }
+
+    .video-section {
+        flex: none;
+        width: 100%;
+        border-right: none;
+        border-bottom: 1px solid #333;
+        padding: 10px;
+    }
+
+    .video-wrapper {
+        max-height: 50vh; /* Видео не больше половины экрана */
+    }
+
+    .sidebar {
+        flex: none;
+        width: 100%;
+        height: 500px; /* Фиксированная высота для чата */
+    }
+}

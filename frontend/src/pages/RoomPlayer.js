@@ -78,8 +78,17 @@ function RoomPlayer() {
   // 2. Подключение к WebSocket
   useEffect(() => {
     if (!roomName) return;
-
-    const wsUrl = `ws://127.0.0.1:8000/ws/player/${roomName}/`;
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    let wsUrl;
+    if (process.env.NODE_ENV === 'production') {
+        // В докере: ws://domain.com/ws/...
+        wsUrl = `${protocol}//${window.location.host}/ws/player/${roomName}/`;
+    } else {
+        // Локально: ws://192.168.X.X:8000/ws/...
+        // Тут тоже лучше использовать IP
+        const LOCAL_IP = '192.168.1.116'; // Или твой реальный IP
+        wsUrl = `ws://${LOCAL_IP}:8000/ws/player/${roomName}/`;
+    }
     const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
 

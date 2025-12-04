@@ -1,3 +1,4 @@
+from django.db.models import Q
 from rest_framework.views import APIView 
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -24,10 +25,19 @@ class MovieViewSet(viewsets.ModelViewSet):
     authentication_classes = [CsrfExemptSessionAuthentication, BasicAuthentication]
 
     def get_queryset(self):
-        # Если запрашивают список (list) - фильтруем приватные
+        # Если запрашивают список (для выпадающего меню)
         if self.action == 'list':
-            return Movie.objects.filter(is_private=False).order_by('-id')
-        # Если запрашивают конкретный фильм (retrieve) - отдаем любой
+            user = self.request.user
+            if user.is_authenticated:
+                # Показываем: (Публичные) ИЛИ (Загруженные мной)
+                return Movie.objects.filter(
+                    Q(is_private=False) | Q(uploaded_by=user)
+                ).order_by('-id')
+            else:
+                # Гости видят только публичные
+                return Movie.objects.filter(is_private=False).order_by('-id')
+                
+        # Если запрашивают конкретный фильм по ID (плеер) - отдаем любой
         return Movie.objects.all()
 
 class RoomViewSet(viewsets.ModelViewSet):
