@@ -1,0 +1,21 @@
+# Python / Django
+__pycache__/
+*.py[cod]
+*.so
+.venv
+venv/
+env/
+db.sqlite3
+.DS_Store
+
+# Media (не заливаем пользовательские файлы)
+backend/media/
+backend/staticfiles/
+backend/static
+*.mp4
+*.mov
+*.avi
+# Frontend / Node
+frontend/node_modules/
+frontend/build/
+.env

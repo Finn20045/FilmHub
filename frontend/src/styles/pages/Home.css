@@ -1,0 +1,80 @@
+.home-page {
+    color: white;
+}
+
+/* === Hero Section (Баннер) === */
+.hero-section {
+    height: 500px;
+    background: linear-gradient(rgba(0,0,0,0.6), rgba(0,0,0,0.9)), 
+                url('https://images.unsplash.com/photo-1536440136628-849c177e76a1?ixlib=rb-1.2.1&auto=format&fit=crop&w=1920&q=80');
+    background-size: cover;
+    background-position: center;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    padding: 20px;
+}
+
+.hero-title {
+    font-size: 3.5rem;
+    margin-bottom: 20px;
+    background: linear-gradient(90deg, #a29bfe, #6c5ce7);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    font-weight: 800;
+}
+
+.hero-subtitle {
+    font-size: 1.2rem;
+    color: #ddd;
+    max-width: 600px;
+    margin-bottom: 40px;
+    line-height: 1.6;
+}
+
+.hero-buttons {
+    display: flex;
+    gap: 20px;
+}
+
+/* === Секция с фильмами === */
+.featured-section {
+    padding: 40px 20px;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.section-title {
+    font-size: 2rem;
+    margin-bottom: 30px;
+    border-left: 5px solid #6c5ce7;
+    padding-left: 15px;
+}
+
+/* Кнопки переиспользуем из глобальных стилей или задаем тут */
+.btn-large {
+    padding: 15px 40px;
+    font-size: 1.1rem;
+    border-radius: 30px;
+    cursor: pointer;
+    border: none;
+    font-weight: bold;
+    transition: transform 0.2s;
+}
+
+.btn-primary-hero {
+    background: #6c5ce7;
+    color: white;
+}
+
+.btn-secondary-hero {
+    background: transparent;
+    border: 2px solid #6c5ce7;
+    color: white;
+}
+
+.btn-large:hover {
+    transform: scale(1.05);
+}

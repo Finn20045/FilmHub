@@ -1,0 +1,362 @@
+/* Страница фильмов */
+.movies-page {
+  padding: 40px 20px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.movies-header {
+  text-align: center;
+  margin-bottom: 40px;
+}
+
+.movies-header h1 {
+  font-size: 2.8em;
+  margin-bottom: 10px;
+  color: var(--text-primary);
+  font-weight: 700;
+}
+
+.movies-header p {
+  font-size: 1.2em;
+  margin-bottom: 30px;
+  color: var(--text-secondary);
+}
+
+/* Фильтры */
+.filters-container {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  align-items: center;
+}
+
+.search-box {
+  width: 100%;
+  max-width: 500px;
+}
+
+.search-input {
+  width: 100%;
+  padding: 15px 20px;
+  border: 1px solid var(--card-border);
+  border-radius: 25px;
+  background: var(--card-bg);
+  color: var(--text-primary);
+  font-size: 1.1em;
+  transition: all 0.3s ease;
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 3px rgba(106, 17, 203, 0.2);
+}
+
+.search-input::placeholder {
+  color: var(--text-secondary);
+}
+
+.category-filters {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.category-btn {
+  padding: 10px 20px;
+  border: 1px solid var(--card-border);
+  border-radius: 20px;
+  background: var(--card-bg);
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-size: 0.9em;
+}
+
+.category-btn:hover {
+  background: rgba(106, 17, 203, 0.2);
+  border-color: var(--accent-color);
+}
+
+.category-btn.active {
+  background: linear-gradient(135deg, var(--accent-color), var(--accent-secondary));
+  color: white;
+  border-color: transparent;
+}
+
+/* Статистика */
+.movies-stats {
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+  margin-bottom: 40px;
+}
+
+.stat-card {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 15px;
+  padding: 20px 30px;
+  text-align: center;
+  min-width: 150px;
+}
+
+.stat-number {
+  display: block;
+  font-size: 2.5em;
+  font-weight: 700;
+  color: var(--accent-color);
+  margin-bottom: 5px;
+}
+
+.stat-label {
+  color: var(--text-secondary);
+  font-size: 0.9em;
+}
+
+/* Детальная сетка фильмов */
+.movies-grid-detailed {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+  gap: 30px;
+  margin-bottom: 40px;
+}
+
+.movie-card-detailed {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 20px;
+  overflow: hidden;
+  transition: all 0.3s ease;
+  backdrop-filter: blur(10px);
+}
+
+.movie-card-detailed:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 15px 40px rgba(0, 0, 0, 0.4);
+  border-color: var(--accent-color);
+}
+
+.movie-poster-detailed {
+  position: relative;
+  height: 400px;
+  overflow: hidden;
+}
+
+.movie-poster-detailed img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.3s ease;
+}
+
+.movie-card-detailed:hover .movie-poster-detailed img {
+  transform: scale(1.05);
+}
+
+.movie-overlay-detailed {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(106, 17, 203, 0.9);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 15px;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.movie-card-detailed:hover .movie-overlay-detailed {
+  opacity: 1;
+}
+
+.action-btn {
+  padding: 12px 20px;
+  border: none;
+  border-radius: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  min-width: 160px;
+}
+
+.action-btn.watch {
+  background: white;
+  color: var(--accent-color);
+}
+
+.action-btn.room {
+  background: var(--accent-secondary);
+  color: white;
+}
+
+.action-btn:hover {
+  transform: scale(1.05);
+}
+
+.movie-info {
+  padding: 20px;
+}
+
+.movie-info h3 {
+  margin: 0 0 15px 0;
+  color: var(--text-primary);
+  font-size: 1.3em;
+  font-weight: 600;
+}
+
+.movie-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+}
+
+.category-badge {
+  padding: 5px 12px;
+  border-radius: 15px;
+  font-size: 0.8em;
+  font-weight: 600;
+  background: rgba(106, 17, 203, 0.2);
+  color: var(--accent-color);
+}
+
+.views-count {
+  color: var(--text-secondary);
+  font-size: 0.9em;
+}
+
+.movie-description-detailed {
+  color: var(--text-secondary);
+  line-height: 1.5;
+  margin-bottom: 15px;
+  font-size: 0.95em;
+}
+
+.movie-actions-detailed {
+  display: flex;
+  gap: 10px;
+}
+
+.btn-primary.small,
+.btn-secondary.small {
+  padding: 8px 16px;
+  font-size: 0.9em;
+  flex: 1;
+}
+
+/* Модальное окно деталей */
+.modal-content.large {
+  max-width: 800px;
+  width: 95%;
+}
+
+.movie-details {
+  display: grid;
+  grid-template-columns: 300px 1fr;
+  gap: 30px;
+  padding: 20px;
+}
+
+.details-poster img {
+  width: 100%;
+  border-radius: 15px;
+}
+
+.details-info {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.details-meta {
+  display: flex;
+  gap: 15px;
+  align-items: center;
+}
+
+.details-description {
+  color: var(--text-primary);
+  line-height: 1.6;
+  font-size: 1.1em;
+  flex: 1;
+}
+
+.details-actions {
+  display: flex;
+  gap: 15px;
+}
+
+.details-actions button {
+  flex: 1;
+  padding: 15px;
+}
+
+.movies-content {
+  padding: 40px 20px;
+  text-align: center;
+}
+
+.feature-message {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 20px;
+  padding: 60px 40px;
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.feature-message h2 {
+  color: var(--text-primary);
+  margin-bottom: 20px;
+  font-size: 2em;
+}
+
+.feature-message p {
+  color: var(--text-secondary);
+  margin-bottom: 15px;
+  font-size: 1.1em;
+}
+
+.feature-actions {
+  display: flex;
+  gap: 15px;
+  justify-content: center;
+  margin-top: 30px;
+}
+
+.feature-actions button {
+  min-width: 160px;
+}
+
+/* Адаптивность */
+@media (max-width: 768px) {
+  .movies-grid-detailed {
+    grid-template-columns: 1fr;
+  }
+  
+  .movie-details {
+    grid-template-columns: 1fr;
+    text-align: center;
+  }
+  
+  .details-actions {
+    flex-direction: column;
+  }
+  
+  .movies-stats {
+    flex-direction: column;
+    align-items: center;
+  }
+  
+  .stat-card {
+    width: 100%;
+    max-width: 200px;
+  }
+}

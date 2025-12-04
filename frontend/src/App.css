@@ -1,0 +1,18 @@
+/* Основные стили приложения */
+.App {
+  text-align: center;
+  min-height: 100vh;
+  background: linear-gradient(135deg, var(--primary-bg) 0%, var(--secondary-bg) 100%);
+}
+
+.app-main {
+  min-height: calc(100vh - 140px);
+}
+
+.app-footer {
+  background: var(--primary-bg);
+  padding: 30px 20px;
+  text-align: center;
+  color: var(--text-secondary);
+  border-top: 1px solid var(--card-border);
+}

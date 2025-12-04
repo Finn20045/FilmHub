@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FilmHub - Главная</title>
+    {% load static %}
+    <link rel="stylesheet" href="{% static 'css/styles.css' %}">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+</head>
+<body>
+    <header>
+        <div class="logo">FilmHub</div>
+        <nav>
+            <ul>
+                <li><a href="#">Главная</a></li>
+                <li><a href="#">Фильмы</a></li>
+                <li><a href="#">Сериалы</a></li>
+                <li><a href="#">Мой список</a></li>
+            </ul>
+        </nav>
+        <div class="profile">
+            {% if user.is_authenticated %}
+                <a href="{% url 'profile' %}">
+                    <button class="nav-button">Профиль</button>
+                </a>
+            {% else %}
+                <a href="{% url 'login' %}">
+                    <button class="nav-button">Войти</button>
+                </a>
+            {% endif %}
+        </div>
+    </header>
+
+    <main>
+        <!-- Секция героя -->
+        <section class="hero">
+            <img src="{% static 'media/image/hero-ima.jpg' %}" alt="Рекомендуемое видео">
+            <div class="hero-content">
+                <h1 id="featured-title">Рекомендуемый фильм</h1>
+                <p id="featured-description">Смотрите сейчас</p>
+                <button id="watch-featured-button" onclick="watchFeatured()">Смотреть</button>
+            </div>
+        </section>
+
+        <!-- Секция в тренде -->
+        <section class="content">
+            <h2>В тренде</h2>
+            <div class="cards" id="trending-cards">
+                {% for movie in movies %}
+                <div class="card">
+                    <img src="{{ movie.poster_url }}" alt="{{ movie.title }}">
+                    <p>{{ movie.title }}</p>
+                    <button onclick="selectMovie('{{ movie.id }}')">Подробнее</button>
+                </div>
+                {% endfor %}
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <p>&copy; 2024 FilmHub. Все права защищены.</p>
+    </footer>
+
+    <!-- Модальное окно для рекомендованного фильма -->
+    <div id="featured-modal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <span class="close-button" onclick="closeModal()">&times;</span>
+            <h3 id="modal-title">Рекомендуемый фильм</h3>
+            <p id="modal-description">Описание фильма...</p>
+            <button id="modal-watch-button">Смотреть</button>
+        </div>
+    </div>
+
+    <script>
+        // Открытие модального окна
+        function watchFeatured() {
+            document.getElementById('featured-modal').style.display = 'flex';
+            document.getElementById('modal-title').innerText = 'Рекомендуемый фильм';
+            document.getElementById('modal-description').innerText = 'Подробное описание рекомендуемого фильма.';
+        }
+
+        // Закрытие модального окна
+        function closeModal() {
+            document.getElementById('featured-modal').style.display = 'none';
+        }
+
+        // Подробности фильма
+        function selectMovie(movieId) {
+            // Здесь можно выполнить AJAX-запрос для получения данных о фильме
+            alert('Детали фильма ID: ' + movieId);
+        }
+    </script>
+</body>
+</html>
