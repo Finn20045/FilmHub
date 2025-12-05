@@ -1,6 +1,5 @@
 import React from 'react';
-import MovieCard from './MovieCard'; // Убедись, что этот файл существует
-// Если есть стили для сетки, раскомментируй строку ниже:
+import MovieCard from './MovieCard';
 // import '../../styles/components/Movies.css'; 
 
 const MovieGrid = ({ movies }) => {

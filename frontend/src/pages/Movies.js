@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { api } from '../Services/api'; // Импортируем наш настроенный api
+import { api } from '../Services/api';
 import MovieGrid from '../components/Movies/MovieGrid';
 import '../styles/pages/MoviePage.css';
 

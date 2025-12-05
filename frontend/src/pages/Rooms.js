@@ -159,7 +159,6 @@ function Rooms() {
         
       {error && <div style={{ color: 'red', textAlign: 'center', marginBottom: '20px' }}>{error}</div>}
 
-      {/* Передаем новые пропсы в RoomList */}
       <RoomList 
           rooms={rooms} 
           onJoin={handleJoinClick} 

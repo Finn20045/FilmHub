@@ -2,12 +2,12 @@ from django.db import models
 from django.contrib.auth.models import User
 from django.utils import timezone
 
-# --- Расширения пользователя (по схеме) ---
+# === РАСШИРЕНИЕ МОДЕЛИ ПОЛЬЗОВАТЕЛЯ ===
 
 class UserData(models.Model):
     """
-    Хранит базовую демографическую информацию (age, country, gender).
-    Связь 1-к-1 с User.
+    Таблица с дополнительными демографическими данными пользователя.
+    Связь OneToOne с таблицей User.
     """
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='user_data')
     age = models.IntegerField(null=True, blank=True)
@@ -20,8 +20,7 @@ class UserData(models.Model):
 
 class UserProfile(models.Model):
     """
-    Хранит визуальную информацию (фото).
-    Связь 1-к-1 с User.
+    Таблица для хранения аватарок пользователей.
     """
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='user_profile')
     photo = models.ImageField(upload_to='user_photos/', blank=True, null=True)
@@ -44,9 +43,13 @@ class UserPermissions(models.Model):
         return f"Permissions for {self.user.username}"
 
 
-# --- Фильмы ---
+# === ОСНОВНОЙ КОНТЕНТ ===
 
 class Movie(models.Model):
+    """
+    Модель Фильма.
+    Может быть загружен через админку (публичный) или пользователем (приватный).
+    """
     CATEGORY_CHOICES = (
         ('A', 'Action'),
         ('D', 'Drama'),
@@ -65,16 +68,17 @@ class Movie(models.Model):
     category = models.CharField(choices=CATEGORY_CHOICES, max_length=1, default='A')
     status = models.CharField(choices=STATUS_CHOICES, max_length=2, default='MW')
     views_count = models.IntegerField(default=0)
-    is_private = models.BooleanField(default=False)
+    
+    
     # Медиа контент
     poster_url = models.URLField(blank=True, null=True)
     video_url = models.URLField(blank=True, null=True) # Если видео на внешнем хостинге
     video = models.FileField(upload_to='videos/', blank=True, null=True) # Если загружаем файл локально
     image = models.ImageField(upload_to='movie_images/', default='movie_images/default.jpg')
     
-    # Кто загрузил (uploaded_by на схеме)
+    # Связи и флаги
     uploaded_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='uploaded_movies')
-
+    is_private = models.BooleanField(default=False)
     def __str__(self):
         return self.title
 
@@ -83,21 +87,20 @@ class Movie(models.Model):
 
 class Room(models.Model):
     """
-    Виртуальная комната. 
-    Содержит ссылку на фильм, владельца и список участников.
+    Модель Комнаты для совместного просмотра.
     """
     name = models.CharField(max_length=255, unique=True)
     description = models.TextField(blank=True)
     max_participants = models.PositiveIntegerField(default=10)
     password = models.CharField(max_length=255, blank=True, null=True) # Можно оставить пустым для открытых комнат
     
-    # Владелец комнаты (owner на схеме)
+    # Владелец комнаты
     owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name="owned_rooms")
     
-    # Текущий фильм (video на схеме)
+    # Текущий фильм 
     video = models.ForeignKey(Movie, on_delete=models.SET_NULL, null=True, blank=True)
     
-    # Участники (participants на схеме)
+    # Участники
     participants = models.ManyToManyField(User, related_name="rooms", blank=True)
     
     # Текущее время воспроизведения (для сохранения состояния)
@@ -105,14 +108,11 @@ class Room(models.Model):
 
     last_activity = models.DateTimeField(default=timezone.now)
 
-    # Примечание: message_array из схемы в SQL реализуется через 
-    # ForeignKey в модели Message (связь "один-ко-многим"), а не массивом здесь.
 
     def __str__(self):
         return self.name
 
-    # Методы add_participant и remove_participant лучше реализовывать 
-    # в API (Views) или как методы модели, если очень нужно:
+    
     def add_participant(self, user):
         if self.participants.count() < self.max_participants:
             self.participants.add(user)
@@ -125,7 +125,7 @@ class Room(models.Model):
 
 class Message(models.Model):
     """
-    Сообщения чата в комнате.
+    История сообщений в чате комнаты.
     """
     room = models.ForeignKey(Room, on_delete=models.CASCADE, related_name="messages")
     user = models.ForeignKey(User, on_delete=models.CASCADE)

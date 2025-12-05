@@ -19,7 +19,7 @@ function App() {
   const [user, setUser] = useState(localStorage.getItem('username'));
 
   useEffect(() => {
-    // Этот код сработает, если мы вручную почистим storage, но оставим вкладку открытой
+    // Этот код сработает, если вручную почистим storage, но оставим вкладку открытой
     const storedUser = localStorage.getItem('username');
     if (storedUser) {
         setIsLoggedIn(true);

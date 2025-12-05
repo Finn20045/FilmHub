@@ -126,7 +126,7 @@
     color: #e0e0e0;
 }
 
-/* === ОБНОВЛЕННЫЕ СТИЛИ ЧАТА === */
+/* === СТИЛИ ЧАТА === */
 
 /* Контейнер сообщения */
 .chat-msg {
@@ -236,4 +236,42 @@
         width: 100%;
         height: 500px; /* Фиксированная высота для чата */
     }
+}
+
+/* Кнопка поделиться */
+.share-btn {
+    background: transparent;
+    border: 1px solid #444;
+    color: #ccc;
+    cursor: pointer;
+    border-radius: 50%; /* Круглая */
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+    transition: all 0.2s;
+}
+
+.share-btn:hover {
+    background: #6c5ce7;
+    border-color: #6c5ce7;
+    color: white;
+    transform: scale(1.1);
+    box-shadow: 0 0 10px rgba(108, 92, 231, 0.5);
+}
+
+/* Поправим заголовок сайдбара, чтобы элементы стояли ровно */
+.sidebar-header {
+    padding: 15px;
+    border-bottom: 1px solid #333;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #252525;
+}
+
+.sidebar-header h3 {
+    margin: 0; /* Убираем отступы у заголовка, чтобы он стоял ровно с кнопкой */
 }

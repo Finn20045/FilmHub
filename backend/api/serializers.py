@@ -36,12 +36,10 @@ class RoomSerializer(serializers.ModelSerializer):
     video_title = serializers.ReadOnlyField(source='video.title', default=None)
     is_protected = serializers.SerializerMethodField()
     
-    # === 1. ДОБАВЬ ЭТО ОПРЕДЕЛЕНИЕ ===
     video_poster = serializers.ReadOnlyField(source='video.image.url', default=None)
     participants_count = serializers.IntegerField(source='participants.count', read_only=True)
     class Meta:
         model = Room
-        # === 2. ДОБАВЬ 'video_poster' В СПИСОК FIELDS ===
         fields = ['id', 'name', 'description', 'max_participants', 'owner', 'owner_name', 
         'video', 'video_title', 'video_poster', 'current_time', 'is_protected', 'password', 'participants_count']
         
@@ -79,21 +77,17 @@ class FullProfileSerializer(serializers.ModelSerializer):
         # Это покажет в консоли Django, какие данные реально дошли после валидации
         print(f"DEBUG DATA: {validated_data}") 
         
-        # 1. Обновляем User (email)
         instance.email = validated_data.get('email', instance.email)
         instance.first_name = validated_data.get('first_name', instance.first_name)
         instance.last_name = validated_data.get('last_name', instance.last_name)
         instance.save()
 
-        # 2. Обновляем UserData (возраст, страна)
-        # DRF сам группирует поля source='user_data.age' в словарь 'user_data'
         user_data_info = validated_data.pop('user_data', {})
         
         if user_data_info:
             # Используем get_or_create для надежности
             user_data, created = UserData.objects.get_or_create(user=instance)
             
-            # Аккуратно обновляем поля, если они есть
             if 'age' in user_data_info: user_data.age = user_data_info['age']
             if 'country' in user_data_info: user_data.country = user_data_info['country']
             if 'gender' in user_data_info: user_data.gender = user_data_info['gender']

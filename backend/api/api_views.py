@@ -9,8 +9,7 @@ from .models import Movie, Room, Message
 from .serializers import MovieSerializer, RoomSerializer, MessageSerializer, FullProfileSerializer
 from django.utils import timezone
 
-# === МАГИЯ ЗДЕСЬ ===
-# Создаем класс, который отключает проверку CSRF для API
+# Класс, который отключает проверку CSRF для API
 class CsrfExemptSessionAuthentication(SessionAuthentication):
     def enforce_csrf(self, request):
         return  # Просто ничего не делаем, пропуская проверку
@@ -41,9 +40,7 @@ class MovieViewSet(viewsets.ModelViewSet):
         return Movie.objects.all()
 
 class RoomViewSet(viewsets.ModelViewSet):
-    # === ВОТ ЭТА СТРОКА ОБЯЗАТЕЛЬНА ДЛЯ ROUTER ===
     queryset = Room.objects.all().order_by('-id') 
-    # ============================================
     
     serializer_class = RoomSerializer
     permission_classes = [permissions.IsAuthenticatedOrReadOnly]
@@ -81,11 +78,11 @@ class RoomViewSet(viewsets.ModelViewSet):
     def perform_destroy(self, instance):
         # Если у комнаты есть видео и оно помечено как приватное -> удаляем видео
         if instance.video and instance.video.is_private:
-            instance.video.delete() # Удалит запись и файл (если настроен cleanup, но запись точно)
+            instance.video.delete() # Удалит запись и файл
         
         instance.delete()
 
-    # Метод проверки пароля (оставляем как был)
+    # Метод проверки пароля
     @action(detail=True, methods=['post'])
     def verify_password(self, request, name=None):
         room = self.get_object()

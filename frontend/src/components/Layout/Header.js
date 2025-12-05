@@ -11,7 +11,6 @@ function Header({ currentPage, onNavigate, isLoggedIn, user, onLogout }) {
   };
 
   const handleLogout = () => {
-    // Здесь можно добавить вызов API для выхода на сервере (api.post('/logout/'))
     onLogout();
     navigate('/');
     onNavigate('home');
@@ -63,7 +62,6 @@ function Header({ currentPage, onNavigate, isLoggedIn, user, onLogout }) {
         <div className="user-actions">
           {isLoggedIn ? (
             <div className="user-menu">
-              {/* === ИЗМЕНЕНИЕ ЗДЕСЬ: Сделали имя кликабельным === */}
               <span 
                 className="user-greeting"
                 onClick={() => {
@@ -75,7 +73,6 @@ function Header({ currentPage, onNavigate, isLoggedIn, user, onLogout }) {
               >
                 👋 Привет, {user}
               </span>
-              {/* ================================================ */}
               
               <button className="nav-btn" onClick={handleLogout}>
                 🚪 Выйти

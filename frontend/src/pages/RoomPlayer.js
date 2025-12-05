@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import toast from 'react-hot-toast'; // <--- Новые уведомления
+import toast from 'react-hot-toast';
 import { api } from '../Services/api';
 import '../styles/pages/RoomPlayer.css';
 
@@ -31,6 +31,47 @@ function RoomPlayer() {
   // room.owner_name приходит с бэкенда
   const isOwner = room && room.owner_name === username;
 
+  const handleCopyLink = () => {
+    const url = window.location.href;
+
+    const fallbackCopy = (text) => {
+        try {
+            const textArea = document.createElement("textarea");
+            textArea.value = text;
+            
+            // Прячем элемент, чтобы его не было видно
+            textArea.style.position = "fixed";
+            textArea.style.left = "-9999px";
+            
+            document.body.appendChild(textArea);
+            textArea.focus();
+            textArea.select();
+            
+            document.execCommand('copy');
+            document.body.removeChild(textArea);
+            
+            toast.success('Ссылка скопирована!', {
+                icon: '🔗',
+                style: { borderRadius: '10px', background: '#333', color: '#fff' }
+            });
+        } catch (err) {
+            console.error('Fallback copy failed', err);
+            toast.error('Не удалось скопировать ссылку');
+        }
+    };
+
+    // Пробуем новый способ, если не выйдет - используем старый
+    if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(url)
+            .then(() => toast.success('Ссылка скопирована!', {
+                icon: '🔗',
+                style: { borderRadius: '10px', background: '#333', color: '#fff' }
+            }))
+            .catch(() => fallbackCopy(url));
+    } else {
+        fallbackCopy(url);
+    }
+  };
   // 1. Загрузка данных
   useEffect(() => {
     const fetchRoomData = async () => {
@@ -97,7 +138,7 @@ function RoomPlayer() {
     ws.onmessage = (event) => {
       const data = JSON.parse(event.data);
       
-      // === НОВАЯ ЛОГИКА: ОБРАБОТКА КИКА ===
+      // === ОБРАБОТКА КИКА ===
       if (data.type === 'user_kicked') {
           if (data.kicked_username === username) {
               // Если кикнули МЕНЯ
@@ -151,8 +192,7 @@ function RoomPlayer() {
       }
   };
 
-  // ... (applySyncData, handleRemoteVideoEvent, handleVideoLoadedMetadata, sendVideoEvent) ...
-  // Оставь эти функции как были в прошлом варианте
+  
   const applySyncData = (data) => {
       if (!videoRef.current) return;
       const diff = Math.abs(videoRef.current.currentTime - data.currentTime);
@@ -266,7 +306,17 @@ function RoomPlayer() {
 
         <div className="sidebar">
             <div className="sidebar-header">
-                <h3>💬 Чат</h3>
+                <div style={{display: 'flex', alignItems: 'center', gap: '10px'}}>
+                    <h3>💬 Чат</h3>
+                    {/* Кнопка "Поделиться" */}
+                    <button 
+                        className="share-btn" 
+                        onClick={handleCopyLink}
+                        title="Копировать ссылку на комнату"
+                    >
+                        🔗
+                    </button>
+                </div>
                 <span className="online-count">Вы: {username}</span>
             </div>
             <div className="chat-messages">
@@ -286,7 +336,6 @@ function RoomPlayer() {
                                 )}
                             </div>
                             <div className="chat-content">
-                                {/* === ИМЯ СТАЛО КЛИКАБЕЛЬНЫМ === */}
                                 <span 
                                     className="msg-user" 
                                     style={isOwner && !isMyMsg ? {cursor: 'pointer', textDecoration: 'underline'} : {}}
@@ -295,7 +344,6 @@ function RoomPlayer() {
                                 >
                                     {msg.username}
                                 </span>
-                                {/* ============================== */}
                                 <span className="msg-text">{msg.message}</span>
                             </div>
                         </div>

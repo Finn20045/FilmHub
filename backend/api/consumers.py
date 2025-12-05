@@ -6,27 +6,39 @@ from channels.db import database_sync_to_async
 from django.contrib.auth.models import User
 from .models import Room, Message, UserProfile
 
+"""
+consumers.py
+Отвечает за обработку WebSocket соединений (Real-time).
+Работает асинхронно.
+"""
+
 class PlayerConsumer(AsyncWebsocketConsumer):
     async def connect(self):
+        """
+        Вызывается при попытке подключения клиента (браузера) к сокету.
+        """
+        # 1. Получаем имя комнаты из URL и декодируем (убираем %20 и т.д.)
         raw_room_name = self.scope['url_route']['kwargs']['room_name']
         self.room_name = unquote(raw_room_name)
         
-        # Безопасное имя группы
+        # 2. Создаем уникальное имя группы (канала) для Django Channels
+        # Хешируем имя комнаты, чтобы избежать проблем со спецсимволами
         safe_group_name = hashlib.md5(self.room_name.encode('utf-8')).hexdigest()
         self.room_group_name = f'room_{safe_group_name}'
 
+        # 3. Добавляем пользователя в эту группу (подписываем на рассылку)
         await self.channel_layer.group_add(
             self.room_group_name,
             self.channel_name
         )
         
-        await self.accept()
+        await self.accept() # Одобряем соединение
 
-        # Логика входа
+        # 4. Логика входа участника
         if self.scope["user"].is_authenticated:
             await self.add_participant(self.room_name, self.scope["user"])
             
-            # 🔔 СИСТЕМНОЕ СООБЩЕНИЕ: Вход
+            # Отправляем всем сообщение: "Имя вошел в комнату"
             await self.channel_layer.group_send(
                 self.room_group_name,
                 {
@@ -36,10 +48,12 @@ class PlayerConsumer(AsyncWebsocketConsumer):
             )
 
     async def disconnect(self, close_code):
+        """
+        Вызывается при закрытии вкладки или потере соединения.
+        """
         if self.scope["user"].is_authenticated:
             await self.remove_participant(self.room_name, self.scope["user"])
             
-            # 🔔 СИСТЕМНОЕ СООБЩЕНИЕ: Выход
             await self.channel_layer.group_send(
                 self.room_group_name,
                 {
@@ -48,50 +62,46 @@ class PlayerConsumer(AsyncWebsocketConsumer):
                 }
             )
 
+        # Удаляем из группы рассылки
         await self.channel_layer.group_discard(
             self.room_group_name,
             self.channel_name
         )
 
     async def receive(self, text_data):
+        """
+        Вызывается, когда сервер получает сообщение ОТ клиента.
+        """
         try:
             data = json.loads(text_data)
             event_type = data.get('type')
-            
-            # === ЧАТ ===
+
+            # --- ЧАТ ---
             if event_type == 'chat_message':
                 message = data.get('message')
                 username = data.get('username')
 
-                # Сохраняем в БД
-                await self.save_message(username, message)
-                
-                # Получаем аватарку (синхронно -> асинхронно)
-                user_data = await self.get_user_data(username)
+                await self.save_message(username, message) # Сохраняем в БД
+                user_data = await self.get_user_data(username) # Берем аватарку
 
-                # Рассылаем всем с аватаркой
+                # Рассылаем всем участникам группы
                 await self.channel_layer.group_send(
                     self.room_group_name,
                     {
                         'type': 'chat_message_event',
                         'message': message,
                         'username': username,
-                        'avatar': user_data['avatar'] # <--- Новое поле
+                        'avatar': user_data['avatar']
                     }
                 )
 
-            # === МОДЕРАЦИЯ (КИК) ===
+            # --- МОДЕРАЦИЯ (КИК) ---
             elif event_type == 'kick_user':
                 target_username = data.get('username')
                 request_user = self.scope['user']
-
-                # Проверка: кикать может только владелец комнаты
-                # Нам нужно синхронно получить комнату и проверить владельца
                 is_owner = await self.check_is_owner(request_user.username)
                 
                 if is_owner:
-                    # Отправляем всем сообщение, что юзер кикнут
-                    # Клиент "жертвы" сам обработает это и выйдет
                     await self.channel_layer.group_send(
                         self.room_group_name,
                         {
@@ -100,7 +110,8 @@ class PlayerConsumer(AsyncWebsocketConsumer):
                         }
                     )
 
-            # === ВИДЕО ===
+            # --- СИНХРОНИЗАЦИЯ ВИДЕО ---
+            # Просто пересылаем команду (play, pause, time) всем остальным
             elif event_type in ['play', 'pause', 'seek', 'sync', 'change_video', 'request_sync', 'response_sync']:
                 await self.channel_layer.group_send(
                     self.room_group_name,
@@ -108,29 +119,30 @@ class PlayerConsumer(AsyncWebsocketConsumer):
                         'type': 'video_event',
                         'action': event_type,
                         'payload': data,
-                        'sender_channel_name': self.channel_name
+                        'sender_channel_name': self.channel_name # ID отправителя, чтобы не слать ему обратно
                     }
                 )
         except Exception as e:
             print(f"WS Error: {e}")
 
-    # === ОТПРАВЩИКИ СОБЫТИЙ ===
+    # === МЕТОДЫ ОТПРАВКИ (От группы к конкретному сокету) ===
 
     async def chat_message_event(self, event):
         await self.send(text_data=json.dumps({
             'type': 'chat_message',
             'message': event['message'],
             'username': event['username'],
-            'avatar': event.get('avatar') # Пересылаем аватарку фронтенду
+            'avatar': event.get('avatar')
         }))
 
     async def system_message_event(self, event):
         await self.send(text_data=json.dumps({
-            'type': 'system', # Тип для фронтенда
+            'type': 'system',
             'message': event['message']
         }))
 
     async def video_event(self, event):
+        # Не отправляем эхо самому себе
         if self.channel_name != event.get('sender_channel_name'):
             await self.send(text_data=json.dumps({
                 'type': 'video_event',
@@ -138,18 +150,16 @@ class PlayerConsumer(AsyncWebsocketConsumer):
                 'data': event['payload']
             }))
 
-    # Метод отправки события кика
     async def kick_event(self, event):
         await self.send(text_data=json.dumps({
             'type': 'user_kicked',
             'kicked_username': event['kicked_username']
         }))
 
-    # === РАБОТА С БД ===
+    # === DATABASE SYNC (Синхронные методы БД в асинхронном коде) ===
 
     @database_sync_to_async
     def get_user_data(self, username):
-        # Получает URL аватарки пользователя
         try:
             user = User.objects.get(username=username)
             if hasattr(user, 'user_profile') and user.user_profile.photo:
@@ -184,7 +194,6 @@ class PlayerConsumer(AsyncWebsocketConsumer):
         except Exception as e:
             print(f"Error saving message: {e}")
 
-    # Проверка владельца в БД
     @database_sync_to_async
     def check_is_owner(self, username):
         try:

@@ -80,7 +80,7 @@ MIDDLEWARE = [
 # Настройки REST Framework
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
-        # Разрешаем вход по сессии (кукам), который мы сделали
+        # Разрешаем вход по сессии (кукам)
         'rest_framework.authentication.SessionAuthentication',
         # Разрешаем базовый вход (на всякий случай)
         'rest_framework.authentication.BasicAuthentication',
@@ -214,7 +214,7 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.0/howto/static-files/
 
-STATIC_URL = 'static/'
+STATIC_URL = '/django_static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.0/ref/settings/#default-auto-field

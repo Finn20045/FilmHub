@@ -8,7 +8,7 @@ env/
 db.sqlite3
 .DS_Store
 
-# Media (не заливаем пользовательские файлы)
+# Media
 backend/media/
 backend/staticfiles/
 backend/static
