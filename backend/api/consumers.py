@@ -6,39 +6,26 @@ from channels.db import database_sync_to_async
 from django.contrib.auth.models import User
 from .models import Room, Message, UserProfile
 
-"""
-consumers.py
-Отвечает за обработку WebSocket соединений (Real-time).
-Работает асинхронно.
-"""
-
 class PlayerConsumer(AsyncWebsocketConsumer):
     async def connect(self):
-        """
-        Вызывается при попытке подключения клиента (браузера) к сокету.
-        """
-        # 1. Получаем имя комнаты из URL и декодируем (убираем %20 и т.д.)
         raw_room_name = self.scope['url_route']['kwargs']['room_name']
         self.room_name = unquote(raw_room_name)
         
-        # 2. Создаем уникальное имя группы (канала) для Django Channels
-        # Хешируем имя комнаты, чтобы избежать проблем со спецсимволами
+        # Безопасное имя группы
         safe_group_name = hashlib.md5(self.room_name.encode('utf-8')).hexdigest()
         self.room_group_name = f'room_{safe_group_name}'
 
-        # 3. Добавляем пользователя в эту группу (подписываем на рассылку)
         await self.channel_layer.group_add(
             self.room_group_name,
             self.channel_name
         )
         
-        await self.accept() # Одобряем соединение
+        await self.accept()
 
-        # 4. Логика входа участника
         if self.scope["user"].is_authenticated:
             await self.add_participant(self.room_name, self.scope["user"])
             
-            # Отправляем всем сообщение: "Имя вошел в комнату"
+            # Системное сообщение о входе
             await self.channel_layer.group_send(
                 self.room_group_name,
                 {
@@ -48,12 +35,10 @@ class PlayerConsumer(AsyncWebsocketConsumer):
             )
 
     async def disconnect(self, close_code):
-        """
-        Вызывается при закрытии вкладки или потере соединения.
-        """
         if self.scope["user"].is_authenticated:
             await self.remove_participant(self.room_name, self.scope["user"])
             
+            # Системное сообщение о выходе
             await self.channel_layer.group_send(
                 self.room_group_name,
                 {
@@ -62,29 +47,33 @@ class PlayerConsumer(AsyncWebsocketConsumer):
                 }
             )
 
-        # Удаляем из группы рассылки
         await self.channel_layer.group_discard(
             self.room_group_name,
             self.channel_name
         )
 
     async def receive(self, text_data):
-        """
-        Вызывается, когда сервер получает сообщение ОТ клиента.
-        """
         try:
             data = json.loads(text_data)
             event_type = data.get('type')
 
-            # --- ЧАТ ---
+            # === ИСПРАВЛЕНИЕ ОШИБКИ ===
+            # Определяем username СРАЗУ для всех типов событий
+            if self.scope["user"].is_authenticated:
+                username = self.scope["user"].username
+            else:
+                # Если вдруг аноним (хотя у нас стоит защита), берем из данных или ставим дефолт
+                username = data.get('username', 'Guest')
+            # ===========================
+
+            # === ЧАТ ===
             if event_type == 'chat_message':
                 message = data.get('message')
-                username = data.get('username')
+                # Сохраняем
+                await self.save_message(username, message)
+                # Получаем аватарку
+                user_data = await self.get_user_data(username)
 
-                await self.save_message(username, message) # Сохраняем в БД
-                user_data = await self.get_user_data(username) # Берем аватарку
-
-                # Рассылаем всем участникам группы
                 await self.channel_layer.group_send(
                     self.room_group_name,
                     {
@@ -95,11 +84,29 @@ class PlayerConsumer(AsyncWebsocketConsumer):
                     }
                 )
 
-            # --- МОДЕРАЦИЯ (КИК) ---
+            # === ГОЛОСОВОЙ ЧАТ (WEBRTC) ===
+            elif event_type in ['webrtc_offer', 'webrtc_answer', 'webrtc_ice_candidate', 'join_voice']:
+                target = data.get('target')
+                
+                # Логирование для отладки
+                print(f"📡 [WS] WebRTC: {event_type} from {username} -> {target if target else 'ALL'}")
+
+                await self.channel_layer.group_send(
+                    self.room_group_name,
+                    {
+                        'type': 'webrtc_signal_event',
+                        'sender': username,
+                        'action': event_type,
+                        'data': data,
+                        'target': target,
+                        'sender_channel_name': self.channel_name
+                    }
+                )
+
+            # === МОДЕРАЦИЯ (КИК) ===
             elif event_type == 'kick_user':
                 target_username = data.get('username')
-                request_user = self.scope['user']
-                is_owner = await self.check_is_owner(request_user.username)
+                is_owner = await self.check_is_owner(username)
                 
                 if is_owner:
                     await self.channel_layer.group_send(
@@ -110,8 +117,7 @@ class PlayerConsumer(AsyncWebsocketConsumer):
                         }
                     )
 
-            # --- СИНХРОНИЗАЦИЯ ВИДЕО ---
-            # Просто пересылаем команду (play, pause, time) всем остальным
+            # === ВИДЕО (СИНХРОНИЗАЦИЯ) ===
             elif event_type in ['play', 'pause', 'seek', 'sync', 'change_video', 'request_sync', 'response_sync']:
                 await self.channel_layer.group_send(
                     self.room_group_name,
@@ -119,13 +125,13 @@ class PlayerConsumer(AsyncWebsocketConsumer):
                         'type': 'video_event',
                         'action': event_type,
                         'payload': data,
-                        'sender_channel_name': self.channel_name # ID отправителя, чтобы не слать ему обратно
+                        'sender_channel_name': self.channel_name
                     }
                 )
         except Exception as e:
-            print(f"WS Error: {e}")
+            print(f"🔥 WS Error in receive: {e}")
 
-    # === МЕТОДЫ ОТПРАВКИ (От группы к конкретному сокету) ===
+    # === ОТПРАВЩИКИ СОБЫТИЙ ===
 
     async def chat_message_event(self, event):
         await self.send(text_data=json.dumps({
@@ -142,7 +148,6 @@ class PlayerConsumer(AsyncWebsocketConsumer):
         }))
 
     async def video_event(self, event):
-        # Не отправляем эхо самому себе
         if self.channel_name != event.get('sender_channel_name'):
             await self.send(text_data=json.dumps({
                 'type': 'video_event',
@@ -156,7 +161,22 @@ class PlayerConsumer(AsyncWebsocketConsumer):
             'kicked_username': event['kicked_username']
         }))
 
-    # === DATABASE SYNC (Синхронные методы БД в асинхронном коде) ===
+    async def webrtc_signal_event(self, event):
+        # Не отправляем самому себе
+        if self.channel_name == event.get('sender_channel_name'):
+            return
+        # Если это приватное сообщение (offer/answer/ice) и адресовано не нам -> игнорируем
+        target = event.get('target')
+        if target and target != self.scope['user'].username:
+            return
+
+        await self.send(text_data=json.dumps({
+            'type': event['action'],
+            'sender': event['sender'],
+            'data': event['data']
+        }))
+
+    # === РАБОТА С БД ===
 
     @database_sync_to_async
     def get_user_data(self, username):
@@ -164,10 +184,7 @@ class PlayerConsumer(AsyncWebsocketConsumer):
             user = User.objects.get(username=username)
             if hasattr(user, 'user_profile') and user.user_profile.photo:
                 url = user.user_profile.photo.url
-                # === ИСПРАВЛЕНИЕ ===
-                if 'default' in url:
-                    return {'avatar': None}
-                # ===================
+                if 'default' in url: return {'avatar': None}
                 return {'avatar': url}
         except Exception:
             pass
@@ -196,8 +213,8 @@ class PlayerConsumer(AsyncWebsocketConsumer):
             room = Room.objects.filter(name=self.room_name).first()
             if user and room:
                 Message.objects.create(user=user, room=room, content=content)
-        except Exception as e:
-            print(f"Error saving message: {e}")
+        except Exception:
+            pass
 
     @database_sync_to_async
     def check_is_owner(self, username):
