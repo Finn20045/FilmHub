@@ -5,8 +5,8 @@ from rest_framework.response import Response
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from rest_framework import viewsets, permissions
 from rest_framework.authentication import SessionAuthentication, BasicAuthentication
-from .models import Movie, Room, Message
-from .serializers import MovieSerializer, RoomSerializer, MessageSerializer, FullProfileSerializer
+from .models import Movie, Room, Message, Series, Episode
+from .serializers import MovieSerializer, RoomSerializer, MessageSerializer, FullProfileSerializer, SeriesSerializer
 from django.utils import timezone
 
 # Класс, который отключает проверку CSRF для API
@@ -39,6 +39,12 @@ class MovieViewSet(viewsets.ModelViewSet):
         # Если запрашивают конкретный фильм по ID (плеер) - отдаем любой
         return Movie.objects.all()
 
+class SeriesViewSet(viewsets.ModelViewSet):
+    queryset = Series.objects.all().order_by('-id')
+    serializer_class = SeriesSerializer
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
+    authentication_classes = [CsrfExemptSessionAuthentication, BasicAuthentication]
+
 class RoomViewSet(viewsets.ModelViewSet):
     queryset = Room.objects.all().order_by('-id') 
     
@@ -51,6 +57,8 @@ class RoomViewSet(viewsets.ModelViewSet):
     parser_classes = (MultiPartParser, FormParser, JSONParser)
 
     def perform_create(self, serializer):
+        user = self.request.user
+        data = self.request.data
         video_file = self.request.FILES.get('video_file')
         movie_instance = None
         
@@ -68,7 +76,19 @@ class RoomViewSet(viewsets.ModelViewSet):
             serializer.save(owner=self.request.user, video=movie_instance)
         else:
             serializer.save(owner=self.request.user)
-    
+
+        # 2. Выбор Сериала (НОВАЯ ЛОГИКА)
+        series_id = data.get('series_id')
+        if series_id:
+            try:
+                series = Series.objects.get(id=series_id)
+                # По умолчанию ставим 1-ю серию
+                first_episode = series.episodes.order_by('number').first()
+                serializer.save(owner=user, active_series=series, active_episode=first_episode)
+                return
+            except Series.DoesNotExist:
+                pass
+
     def retrieve(self, request, *args, **kwargs):
         instance = self.get_object()
         instance.last_activity = timezone.now()
@@ -81,6 +101,27 @@ class RoomViewSet(viewsets.ModelViewSet):
             instance.video.delete() # Удалит запись и файл
         
         instance.delete()
+
+    # === МЕТОД ПЕРЕКЛЮЧЕНИЯ СЕРИИ ===
+    @action(detail=True, methods=['post'])
+    def change_episode(self, request, name=None):
+        room = self.get_object()
+        # Проверка прав (только владелец)
+        if room.owner != request.user:
+            return Response({'error': 'Только владелец может переключать серии'}, status=403)
+
+        episode_id = request.data.get('episode_id')
+        try:
+            episode = Episode.objects.get(id=episode_id)
+            # Проверка, что серия от того самого сериала
+            if episode.series != room.active_series:
+                 return Response({'error': 'Серия не от этого сериала'}, status=400)
+            
+            room.active_episode = episode
+            room.save()
+            return Response({'success': True, 'new_url': episode.video.url, 'title': episode.title})
+        except Episode.DoesNotExist:
+            return Response({'error': 'Серия не найдена'}, status=404)
 
     # Метод проверки пароля
     @action(detail=True, methods=['post'])

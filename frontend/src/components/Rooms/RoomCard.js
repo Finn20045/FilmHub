@@ -1,22 +1,33 @@
 import React from 'react';
 
 const RoomCard = ({ room, onJoin, currentUser, onDelete }) => {
-  const participantsCount = Array.isArray(room.participants) ? room.participants.length : (room.participants || 0);
   const currentCount = room.participants_count || 0;
-  // Генерируем градиент, если нет картинки
-  const bgStyle = room.video_poster 
+  
+  // === ИСПРАВЛЕНИЕ КАРТИНОК ===
+  // Проверяем: есть ли ссылка и не является ли она "дефолтной" заглушкой Django
+  const hasValidPoster = room.video_poster && !room.video_poster.includes('default');
+
+  const bgStyle = hasValidPoster
     ? { backgroundImage: `url(${room.video_poster})` }
-    : { background: 'linear-gradient(135deg, #2d3436 0%, #000000 74%)' };
+    : { 
+        background: 'linear-gradient(135deg, #2c3e50 0%, #000000 100%)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center'
+      };
+  // ============================
 
   const isOwner = currentUser === room.owner_name;
+
   return (
     <div className="room-card-modern">
       <div className="room-card-cover" style={bgStyle}>
+        {/* Если картинки нет, показываем иконку кино */}
+        {!hasValidPoster && <span style={{fontSize: '3rem', opacity: 0.3}}>🎬</span>}
+
         <div className="room-status-badge">
-            {room.is_protected ? '🔒 Приватная' : '🌍 Открытая'}
+            {room.is_protected ? '🔒' : '🌍'}
         </div>
-      
-      {/* Кнопка удаления (только для владельца) */}
         {isOwner && (
             <button 
                 className="delete-room-btn"
@@ -48,7 +59,7 @@ const RoomCard = ({ room, onJoin, currentUser, onDelete }) => {
         )}
 
         <button className="btn-join-modern" onClick={() => onJoin(room.name)}>
-            Войти в комнату
+            Войти
         </button>
       </div>
     </div>

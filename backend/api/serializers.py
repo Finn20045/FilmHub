@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
-from .models import Movie, Room, Message, UserData, UserProfile
+from .models import Movie, Room, Message, UserData, UserProfile, Series, Episode
 
 # --- Сериализаторы пользователя ---
 
@@ -26,6 +26,19 @@ class UserProfileSerializer(serializers.ModelSerializer):
 
 # --- Сериализаторы контента ---
 
+class EpisodeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Episode
+        fields = ['id', 'number', 'title', 'video']
+
+class SeriesSerializer(serializers.ModelSerializer):
+    # Включаем список эпизодов внутрь сериала
+    episodes = EpisodeSerializer(many=True, read_only=True)
+    
+    class Meta:
+        model = Series
+        fields = ['id', 'title', 'description', 'image', 'episodes', 'is_private']
+
 class MovieSerializer(serializers.ModelSerializer):
     class Meta:
         model = Movie
@@ -33,33 +46,92 @@ class MovieSerializer(serializers.ModelSerializer):
 
 class RoomSerializer(serializers.ModelSerializer):
     owner_name = serializers.ReadOnlyField(source='owner.username')
-    video_title = serializers.ReadOnlyField(source='video.title', default=None)
     is_protected = serializers.SerializerMethodField()
-    
-    video_poster = serializers.ReadOnlyField(source='video.image.url', default=None)
     participants_count = serializers.IntegerField(source='participants.count', read_only=True)
+    
+    # Вложенные объекты (чтобы фронт знал, что именно играет)
+    active_series = SeriesSerializer(read_only=True)
+    active_episode = EpisodeSerializer(read_only=True)
+    
+    # Умные поля (вычисляются на лету)
+    current_video_url = serializers.SerializerMethodField()
+    current_poster_url = serializers.SerializerMethodField()
+    current_title = serializers.SerializerMethodField()
+
     class Meta:
         model = Room
-        fields = ['id', 'name', 'description', 'max_participants', 'owner', 'owner_name', 
-        'video', 'video_title', 'video_poster', 'current_time', 'is_protected', 'password', 'participants_count']
-        
-        read_only_fields = ['owner', 'current_time']
-        extra_kwargs = {
-            'password': {'write_only': True}
-        }
+        fields = [
+            'id', 'name', 'description', 'max_participants', 
+            'owner', 'owner_name', 
+            'video',          # Объект фильма (если выбран фильм)
+            'active_series',  # Объект сериала (если выбран сериал)
+            'active_episode', # Текущая серия
+            'current_video_url', 'current_poster_url', 'current_title', # <-- Умные поля
+            'participants_count', 'is_protected', 'password'
+        ]
+        read_only_fields = ['owner']
+        extra_kwargs = {'password': {'write_only': True}}
 
     def get_is_protected(self, obj):
         return bool(obj.password and obj.password.strip())
 
+    # === ЛОГИКА ВЫБОРА КОНТЕНТА ===
+    
+    def get_current_video_url(self, obj):
+        # 1. Если выбран сериал и серия -> отдаем видео серии
+        if obj.active_episode and obj.active_episode.video:
+            return obj.active_episode.video.url
+        # 2. Если выбран фильм (загруженный файл)
+        if obj.video and obj.video.video:
+            return obj.video.video.url
+        # 3. Если выбран фильм (ссылка)
+        if obj.video and obj.video.video_url:
+            return obj.video.video_url
+        return None
+
+    def get_current_poster_url(self, obj):
+        # 1. Постер сериала
+        if obj.active_series and obj.active_series.image:
+            return obj.active_series.image.url
+        # 2. Постер фильма (файл)
+        if obj.video and obj.video.image:
+            return obj.video.image.url
+        # 3. Постер фильма (ссылка)
+        if obj.video and obj.video.poster_url:
+            return obj.video.poster_url
+        return None
+
+    def get_current_title(self, obj):
+        if obj.active_series:
+            ep_num = obj.active_episode.number if obj.active_episode else '?'
+            return f"{obj.active_series.title} (Серия {ep_num})"
+        if obj.video:
+            return obj.video.title
+        return "Ничего не выбрано"
+
 class MessageSerializer(serializers.ModelSerializer):
     user_name = serializers.ReadOnlyField(source='user.username')
+    # === НОВОЕ ПОЛЕ ===
+    user_avatar = serializers.SerializerMethodField()
 
     class Meta:
         model = Message
-        fields = ['id', 'room', 'user', 'user_name', 'content', 'timestamp']
+        # Не забудь добавить 'user_avatar' сюда
+        fields = ['id', 'room', 'user', 'user_name', 'user_avatar', 'content', 'timestamp']
         read_only_fields = ['timestamp', 'user']
 
-# === НОВЫЙ СЕРИАЛИЗАТОР ДЛЯ ПРОФИЛЯ ===
+    # Метод для получения ссылки на фото
+    def get_user_avatar(self, obj):
+        if hasattr(obj.user, 'user_profile') and obj.user.user_profile.photo:
+            url = obj.user.user_profile.photo.url
+            # === ИСПРАВЛЕНИЕ ===
+            # Если это заглушка 'default', возвращаем None, чтобы фронт рисовал букву
+            if 'default' in url:
+                return None
+            # ===================
+            return url
+        return None
+
 class FullProfileSerializer(serializers.ModelSerializer):
     # Добавляем поля из связанных моделей
     age = serializers.IntegerField(source='user_data.age', required=False)
@@ -73,8 +145,6 @@ class FullProfileSerializer(serializers.ModelSerializer):
         read_only_fields = ['username'] # Логин менять нельзя
 
     def update(self, instance, validated_data):
-        # --- ОТЛАДКА ---
-        # Это покажет в консоли Django, какие данные реально дошли после валидации
         print(f"DEBUG DATA: {validated_data}") 
         
         instance.email = validated_data.get('email', instance.email)

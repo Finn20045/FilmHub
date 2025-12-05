@@ -163,7 +163,12 @@ class PlayerConsumer(AsyncWebsocketConsumer):
         try:
             user = User.objects.get(username=username)
             if hasattr(user, 'user_profile') and user.user_profile.photo:
-                return {'avatar': user.user_profile.photo.url}
+                url = user.user_profile.photo.url
+                # === ИСПРАВЛЕНИЕ ===
+                if 'default' in url:
+                    return {'avatar': None}
+                # ===================
+                return {'avatar': url}
         except Exception:
             pass
         return {'avatar': None}

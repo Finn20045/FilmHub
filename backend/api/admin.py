@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import UserProfile, UserData, UserPermissions, Room, Movie
+from .models import UserProfile, UserData, UserPermissions, Room, Movie, Series, Episode
 
 class UserProfileAdmin(admin.ModelAdmin):
     list_display = ('user', 'photo')
@@ -25,6 +25,16 @@ class RoomAdmin(admin.ModelAdmin):
         self.message_user(request, "Выбранные комнаты были успешно удалены.")
     delete_selected.short_description = "Удалить выбранные комнаты"
 
+class EpisodeInline(admin.TabularInline):
+    model = Episode
+    extra = 1
+
+@admin.register(Series)
+class SeriesAdmin(admin.ModelAdmin):
+    list_display = ('title', 'uploaded_by', 'is_private')
+    inlines = [EpisodeInline] # Позволяет добавлять серии прямо внутри страницы сериала
+
+admin.site.register(Episode)
 
 admin.site.register(Movie)
 admin.site.register(Room, RoomAdmin)

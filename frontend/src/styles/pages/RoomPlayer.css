@@ -1,3 +1,6 @@
+/* =========================================
+   1. ОБЩАЯ РАЗМЕТКА СТРАНИЦЫ
+   ========================================= */
 .room-player-page {
     height: calc(100vh - 70px); /* Высота минус хедер */
     background: #0f0f0f;
@@ -10,7 +13,9 @@
     height: 100%;
 }
 
-/* Видео секция (слева, большая) */
+/* =========================================
+   2. СЕКЦИЯ ВИДЕО (Левая часть)
+   ========================================= */
 .video-section {
     flex: 3; /* Занимает 75% ширины */
     display: flex;
@@ -34,6 +39,12 @@
     width: 100%;
     height: 100%;
     max-height: 80vh;
+    outline: none;
+}
+
+.no-video-placeholder {
+    text-align: center;
+    color: #555;
 }
 
 .video-info {
@@ -45,133 +56,144 @@
     font-size: 1.8rem;
 }
 
+.movie-title {
+    margin-top: 5px;
+    color: #aaa;
+}
+
 .movie-title span {
     color: #a29bfe;
     font-weight: bold;
 }
 
-/* Сайдбар (справа, чат) */
+/* =========================================
+   3. САЙДБАР (Правая часть)
+   ========================================= */
 .sidebar {
     flex: 1; /* Занимает 25% ширины */
     display: flex;
     flex-direction: column;
     background: #1a1a1a;
+    border-left: 1px solid #333;
 }
 
-.sidebar-header {
-    padding: 15px;
-    border-bottom: 1px solid #333;
+/* Шапка с табами */
+.sidebar-tabs {
     display: flex;
-    justify-content: space-between;
-    align-items: center;
     background: #252525;
+    border-bottom: 1px solid #333;
+    padding: 10px;
+    gap: 5px;
+    align-items: center;
 }
 
+.sidebar-tabs .tab-btn {
+    flex: 1;
+    background: transparent;
+    border: none;
+    color: #aaa;
+    padding: 8px;
+    cursor: pointer;
+    border-radius: 6px;
+    font-weight: 600;
+    transition: all 0.2s;
+}
+
+.sidebar-tabs .tab-btn:hover {
+    background: rgba(255, 255, 255, 0.05);
+    color: white;
+}
+
+.sidebar-tabs .tab-btn.active {
+    background: #333;
+    color: white;
+    border-bottom: 2px solid #6c5ce7;
+}
+
+.share-icon-btn {
+    background: transparent;
+    border: 1px solid #444;
+    border-radius: 50%;
+    width: 30px;
+    height: 30px;
+    color: #ccc;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+}
+
+.share-icon-btn:hover {
+    background: #6c5ce7;
+    border-color: #6c5ce7;
+    color: white;
+}
+
+.online-count {
+    font-size: 0.8rem;
+    color: #777;
+    margin-left: auto;
+    padding-left: 10px;
+}
+
+/* =========================================
+   4. ЧАТ
+   ========================================= */
 .chat-messages {
     flex-grow: 1;
     padding: 15px;
     overflow-y: auto;
-}
-
-.system-msg {
-    color: #666;
-    font-size: 0.9rem;
-    text-align: center;
-    margin: 10px 0;
-}
-
-.chat-input-area {
-    padding: 15px;
-    border-top: 1px solid #333;
     display: flex;
-    gap: 10px;
+    flex-direction: column;
+    gap: 8px; /* Отступ между сообщениями */
 }
 
-.chat-input-area input {
-    flex-grow: 1;
-    padding: 10px;
-    border-radius: 5px;
-    border: 1px solid #444;
-    background: #333;
-    color: white;
-}
-
-.no-video-placeholder {
-    text-align: center;
-    color: #555;
-}
-
-/* Сообщения чата */
+/* Сообщение */
 .chat-msg {
-    margin-bottom: 8px;
-    padding: 5px 8px;
-    background: #333;
-    border-radius: 6px;
-    font-size: 0.95rem;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 10px 12px;
+    background: #2d3436;
+    border-radius: 12px;
+    max-width: 90%;
+    width: fit-content;
+    word-wrap: break-word;
+    animation: fadeIn 0.3s ease;
 }
 
-/* Мои сообщения (выделяем цветом) */
+/* Моё сообщение (справа) */
 .my-msg {
-    background: #4a4a4a;
+    background: #3a3f4b;
     border-left: 3px solid #6c5ce7;
+    align-self: flex-end; /* Прижимаем к правому краю */
+    border-radius: 12px 12px 0 12px;
 }
 
-.msg-user {
-    font-weight: bold;
-    color: #a29bfe;
-    margin-right: 8px;
-}
-
-.msg-text {
-    color: #e0e0e0;
-}
-
-/* === СТИЛИ ЧАТА === */
-
-/* Контейнер сообщения */
-.chat-msg {
-    display: flex;
-    align-items: flex-start; /* Выравнивание по верху */
-    gap: 10px;
-    margin-bottom: 12px;
-    padding: 8px;
-    background: #2d3436; /* Чуть светлее фона */
-    border-radius: 8px;
-    transition: all 0.2s;
-}
-
-.my-msg {
-    background: #3a3f4b; /* Мои сообщения чуть другого цвета */
-    border-left: 3px solid #6c5ce7; /* Фиолетовая полоска слева */
-}
-
-/* Аватарки */
+/* Аватарка */
 .chat-avatar-container {
     flex-shrink: 0;
 }
 
-.chat-avatar-img {
-    width: 32px;
-    height: 32px;
+.chat-avatar-img, .chat-avatar-placeholder {
+    width: 36px;
+    height: 36px;
     border-radius: 50%;
     object-fit: cover;
-    border: 1px solid #555;
 }
 
 .chat-avatar-placeholder {
-    width: 32px;
-    height: 32px;
-    border-radius: 50%;
     background: #6c5ce7;
     color: white;
     display: flex;
     align-items: center;
     justify-content: center;
     font-weight: bold;
-    font-size: 0.9rem;
+    font-size: 1rem;
 }
 
-/* Текст сообщения */
+/* Текст внутри сообщения */
 .chat-content {
     display: flex;
     flex-direction: column;
@@ -187,7 +209,7 @@
 .msg-text {
     font-size: 0.95rem;
     color: #dfe6e9;
-    word-break: break-word; /* Чтобы длинные слова переносились */
+    line-height: 1.4;
 }
 
 /* Системные сообщения */
@@ -197,30 +219,136 @@
     color: #636e72;
     margin: 10px 0;
     font-style: italic;
+    width: 100%;
 }
 
-.fade-in {
-    animation: fadeIn 0.5s ease-in;
+/* Поле ввода */
+.chat-input-area {
+    padding: 15px;
+    border-top: 1px solid #333;
+    display: flex;
+    gap: 10px;
+    background: #252525;
 }
 
+.chat-input-area input {
+    flex-grow: 1;
+    padding: 12px;
+    border-radius: 25px;
+    border: 1px solid #444;
+    background: #333;
+    color: white;
+    outline: none;
+}
+
+.chat-input-area input:focus {
+    border-color: #6c5ce7;
+}
+
+.chat-input-area button {
+    background: #6c5ce7;
+    border: none;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    color: white;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.2s;
+}
+
+.chat-input-area button:hover {
+    transform: scale(1.1);
+}
+
+/* =========================================
+   5. СПИСОК СЕРИЙ
+   ========================================= */
+.episodes-list {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow: hidden;
+}
+
+.episodes-title {
+    padding: 15px;
+    margin: 0;
+    border-bottom: 1px solid #333;
+    background: #202020;
+    font-size: 1.1rem;
+    color: #ccc;
+}
+
+.episodes-scroll {
+    overflow-y: auto;
+    flex-grow: 1;
+}
+
+.episode-item {
+    display: flex;
+    align-items: center;
+    padding: 15px;
+    border-bottom: 1px solid #2a2a2a;
+    transition: background 0.2s;
+    cursor: pointer;
+}
+
+.episode-item:hover {
+    background: #2d3436;
+}
+
+.episode-item.active {
+    background: #2d3436;
+    border-left: 4px solid #6c5ce7;
+}
+
+.ep-number {
+    font-weight: bold;
+    color: #6c5ce7;
+    margin-right: 15px;
+    width: 30px;
+    text-align: center;
+}
+
+.ep-title {
+    flex-grow: 1;
+    font-size: 1rem;
+}
+
+.playing-icon {
+    font-size: 0.8rem;
+    color: #00b894;
+    animation: pulse 2s infinite;
+}
+
+/* =========================================
+   6. АНИМАЦИИ И АДАПТИВ
+   ========================================= */
 @keyframes fadeIn {
     from { opacity: 0; transform: translateY(5px); }
     to { opacity: 1; transform: translateY(0); }
 }
 
-/* === АДАПТИВНОСТЬ === */
+@keyframes pulse {
+    0% { opacity: 0.5; }
+    50% { opacity: 1; }
+    100% { opacity: 0.5; }
+}
+
 @media (max-width: 768px) {
     .room-player-page {
-        height: auto; /* Разрешаем скролл на мобильных */
+        height: auto;
         overflow-y: auto;
     }
 
     .player-container {
-        flex-direction: column; /* Ставим видео и чат друг под другом */
+        flex-direction: column;
     }
 
     .video-section {
-        flex: none;
         width: 100%;
         border-right: none;
         border-bottom: 1px solid #333;
@@ -228,50 +356,11 @@
     }
 
     .video-wrapper {
-        max-height: 50vh; /* Видео не больше половины экрана */
+        max-height: 50vh;
     }
 
     .sidebar {
-        flex: none;
         width: 100%;
-        height: 500px; /* Фиксированная высота для чата */
+        height: 600px; /* Фиксированная высота для чата на мобильных */
     }
-}
-
-/* Кнопка поделиться */
-.share-btn {
-    background: transparent;
-    border: 1px solid #444;
-    color: #ccc;
-    cursor: pointer;
-    border-radius: 50%; /* Круглая */
-    width: 30px;
-    height: 30px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1rem;
-    transition: all 0.2s;
-}
-
-.share-btn:hover {
-    background: #6c5ce7;
-    border-color: #6c5ce7;
-    color: white;
-    transform: scale(1.1);
-    box-shadow: 0 0 10px rgba(108, 92, 231, 0.5);
-}
-
-/* Поправим заголовок сайдбара, чтобы элементы стояли ровно */
-.sidebar-header {
-    padding: 15px;
-    border-bottom: 1px solid #333;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    background: #252525;
-}
-
-.sidebar-header h3 {
-    margin: 0; /* Убираем отступы у заголовка, чтобы он стоял ровно с кнопкой */
 }

@@ -192,3 +192,33 @@
     transform: scale(1.1);
     box-shadow: 0 4px 10px rgba(231, 76, 60, 0.4);
 }
+
+/* Кнопки переключения типа контента */
+.content-type-tabs {
+    background: #2d3436;
+    padding: 5px;
+    border-radius: 10px;
+    margin-bottom: 20px;
+}
+
+.tab-btn {
+    flex: 1;
+    background: transparent;
+    border: none;
+    color: #aaa;
+    padding: 8px;
+    cursor: pointer;
+    border-radius: 8px;
+    font-weight: 500;
+    transition: all 0.2s;
+}
+
+.tab-btn:hover {
+    color: white;
+}
+
+.tab-btn.active {
+    background: #3c40c6; /* Или #6c5ce7 */
+    color: white;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+}

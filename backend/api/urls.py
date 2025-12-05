@@ -6,6 +6,7 @@ from . import views      # Обычные функции (api_login, api_signup)
 # Создаем роутер и регистрируем ViewSet
 router = DefaultRouter()
 router.register(r'movies', api_views.MovieViewSet)
+router.register(r'series', api_views.SeriesViewSet)
 router.register(r'rooms', api_views.RoomViewSet)
 router.register(r'messages', api_views.MessageViewSet)
 

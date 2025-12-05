@@ -15,7 +15,6 @@ function RoomPlayer() {
   const [messages, setMessages] = useState([]);
   const [messageInput, setMessageInput] = useState('');
   const [isConnected, setIsConnected] = useState(false);
-  
   const wsRef = useRef(null); 
   const videoRef = useRef(null); 
   
@@ -23,72 +22,26 @@ function RoomPlayer() {
   const hasSyncedInitial = useRef(false);
   const pendingSync = useRef(null);
 
+  const [activeTab, setActiveTab] = useState('chat');
+
   const storedUser = localStorage.getItem('username');
   const isGuest = !storedUser;
   const username = storedUser || 'Аноним';
 
-  // Проверка: является ли текущий юзер владельцем
-  // room.owner_name приходит с бэкенда
-  const isOwner = room && room.owner_name === username;
-
-  const handleCopyLink = () => {
-    const url = window.location.href;
-
-    const fallbackCopy = (text) => {
-        try {
-            const textArea = document.createElement("textarea");
-            textArea.value = text;
-            
-            // Прячем элемент, чтобы его не было видно
-            textArea.style.position = "fixed";
-            textArea.style.left = "-9999px";
-            
-            document.body.appendChild(textArea);
-            textArea.focus();
-            textArea.select();
-            
-            document.execCommand('copy');
-            document.body.removeChild(textArea);
-            
-            toast.success('Ссылка скопирована!', {
-                icon: '🔗',
-                style: { borderRadius: '10px', background: '#333', color: '#fff' }
-            });
-        } catch (err) {
-            console.error('Fallback copy failed', err);
-            toast.error('Не удалось скопировать ссылку');
-        }
-    };
-
-    // Пробуем новый способ, если не выйдет - используем старый
-    if (navigator.clipboard && window.isSecureContext) {
-        navigator.clipboard.writeText(url)
-            .then(() => toast.success('Ссылка скопирована!', {
-                icon: '🔗',
-                style: { borderRadius: '10px', background: '#333', color: '#fff' }
-            }))
-            .catch(() => fallbackCopy(url));
-    } else {
-        fallbackCopy(url);
-    }
+  // === ХЕЛПЕР ДЛЯ URL АВАТАРОК ===
+  const getAvatarUrl = (url) => {
+      if (!url) return null;
+      if (url.includes('default')) return null; // Если заглушка
+      return url.replace('http://127.0.0.1:8000', ''); // Убираем порт 8000
   };
+
   // 1. Загрузка данных
   useEffect(() => {
     const fetchRoomData = async () => {
       try {
         const roomRes = await api.get(`rooms/${roomName}/`);
         setRoom(roomRes.data);
-
-        if (roomRes.data.video) {
-            try {
-                if (typeof roomRes.data.video === 'number') {
-                    const movieRes = await api.get(`movies/${roomRes.data.video}/`);
-                    setMovie(movieRes.data);
-                } else {
-                    setMovie(roomRes.data.video);
-                }
-            } catch { console.log("Фильм не найден"); }
-        }
+        if (roomRes.data.active_series) setActiveTab('episodes');
 
         try {
             const messagesRes = await api.get(`messages/?room=${roomName}`);
@@ -96,13 +49,13 @@ function RoomPlayer() {
                 username: msg.user_name,
                 message: msg.content,
                 timestamp: msg.timestamp,
-                avatar: null 
+                avatar: msg.user_avatar // Аватар обрабатываем при рендере
             }));
             setMessages(formattedMessages);
         } catch (err) { console.error("Ошибка чата:", err); }
 
       } catch (err) {
-        toast.error('Комната не найдена или удалена');
+        toast.error('Комната не найдена');
         navigate('/rooms');
       } finally {
         setLoading(false);
@@ -126,7 +79,6 @@ function RoomPlayer() {
       console.log('✅ Connected');
       setIsConnected(true);
       sendVideoEvent('request_sync');
-      
       setTimeout(() => {
           if (!hasSyncedInitial.current) {
               hasSyncedInitial.current = true;
@@ -138,67 +90,95 @@ function RoomPlayer() {
     ws.onmessage = (event) => {
       const data = JSON.parse(event.data);
       
-      // === ОБРАБОТКА КИКА ===
-      if (data.type === 'user_kicked') {
-          if (data.kicked_username === username) {
-              // Если кикнули МЕНЯ
-              ws.close();
-              navigate('/rooms');
-              toast.error('⛔ Вас выгнали из комнаты');
-          } else {
-              // Если кикнули КОГО-ТО ДРУГОГО
-              toast(`${data.kicked_username} был изгнан`, { icon: '👢' });
-          }
+      if (data.type === 'video_event' && data.action === 'change_video') {
+          api.get(`rooms/${roomName}/`).then(res => {
+              setRoom(res.data);
+              hasSyncedInitial.current = false;
+              toast('Включена следующая серия!', { icon: '📺' });
+          });
           return;
       }
-      // ====================================
 
-      if (data.type === 'chat_message') {
+      if (data.type === 'user_kicked') {
+          if (data.kicked_username === username) {
+              ws.close();
+              navigate('/rooms');
+              toast.error('⛔ Вас выгнали');
+          } else {
+              toast(`${data.kicked_username} был изгнан`, { icon: '👢' });
+          }
+      }
+      else if (data.type === 'chat_message') {
         setMessages((prev) => [...prev, data]);
       } 
       else if (data.type === 'system') {
-          // Вместо текста в чате показываем красивый Toast
-          toast(data.message, {
-              icon: '🔔',
-              style: { borderRadius: '10px', background: '#333', color: '#fff' },
-          });
+          toast(data.message, { icon: '🔔', style: { borderRadius: '10px', background: '#333', color: '#fff' } });
       }
       else if (data.type === 'video_event') {
         handleRemoteVideoEvent(data);
       }
     };
 
-    ws.onclose = () => {
-      setIsConnected(false);
-    };
-
-    return () => {
-      ws.close();
-    };
+    ws.onclose = () => setIsConnected(false);
+    return () => ws.close();
   }, [roomName, username, navigate]);
 
-  // === ФУНКЦИЯ КИКА (ВЫЗЫВАЕТСЯ ПРИ КЛИКЕ НА ИМЯ) ===
-  const handleUserClick = (targetUser) => {
-      // Можно кикнуть только если:
-      // 1. Я владелец
-      // 2. Цель - не я сам
-      if (isOwner && targetUser !== username) {
-          if (window.confirm(`Выгнать пользователя ${targetUser}?`)) {
-              wsRef.current.send(JSON.stringify({
-                  type: 'kick_user',
-                  username: targetUser
-              }));
-          }
+  // === ИСПРАВЛЕННАЯ ФУНКЦИЯ КОПИРОВАНИЯ ===
+  const handleCopyLink = () => {
+    const url = window.location.href;
+    
+    // Попытка 1: Современный API
+    if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(url)
+            .then(() => toast.success('Ссылка скопирована!'))
+            .catch(() => fallbackCopy(url));
+    } else {
+        // Попытка 2: Старый метод (для HTTP)
+        fallbackCopy(url);
+    }
+  };
+
+  const fallbackCopy = (text) => {
+      try {
+          const textArea = document.createElement("textarea");
+          textArea.value = text;
+          textArea.style.position = "fixed"; 
+          textArea.style.left = "-9999px"; // Скрываем, но оставляем в DOM
+          document.body.appendChild(textArea);
+          textArea.focus();
+          textArea.select();
+          const successful = document.execCommand('copy');
+          document.body.removeChild(textArea);
+          
+          if (successful) toast.success('Ссылка скопирована!');
+          else toast.error('Не удалось скопировать');
+      } catch (err) {
+          console.error(err);
+          toast.error('Ошибка копирования');
       }
   };
 
-  
+  const handleChangeEpisode = async (episodeId) => {
+      if (room?.owner_name !== username) {
+          toast.error("Только владелец может переключать серии");
+          return;
+      }
+      try {
+          await api.post(`rooms/${roomName}/change_episode/`, { episode_id: episodeId });
+          if (wsRef.current) wsRef.current.send(JSON.stringify({ type: 'change_video' }));
+          
+          const res = await api.get(`rooms/${roomName}/`);
+          setRoom(res.data);
+          hasSyncedInitial.current = false;
+      } catch (err) {
+          toast.error("Ошибка при смене серии");
+      }
+  };
+
   const applySyncData = (data) => {
       if (!videoRef.current) return;
       const diff = Math.abs(videoRef.current.currentTime - data.currentTime);
-      if (diff > 0.5 || videoRef.current.currentTime === 0) {
-          videoRef.current.currentTime = data.currentTime;
-      }
+      if (diff > 0.5 || videoRef.current.currentTime === 0) videoRef.current.currentTime = data.currentTime;
       if (data.paused) videoRef.current.pause();
       else videoRef.current.play().catch(() => {});
       hasSyncedInitial.current = true;
@@ -209,21 +189,14 @@ function RoomPlayer() {
   const handleRemoteVideoEvent = (data) => {
     if (data.action === 'request_sync') {
         if (videoRef.current && videoRef.current.readyState >= 1) {
-            wsRef.current.send(JSON.stringify({
-                type: 'response_sync',
-                currentTime: videoRef.current.currentTime,
-                paused: videoRef.current.paused
-            }));
+            wsRef.current.send(JSON.stringify({ type: 'response_sync', currentTime: videoRef.current.currentTime, paused: videoRef.current.paused }));
         }
         return;
     }
     if (data.action === 'response_sync') {
         if (!hasSyncedInitial.current) {
-            if (videoRef.current && videoRef.current.readyState >= 1) {
-                applySyncData(data.data);
-            } else {
-                pendingSync.current = data.data;
-            }
+            if (videoRef.current && videoRef.current.readyState >= 1) applySyncData(data.data);
+            else pendingSync.current = data.data;
         }
         return;
     }
@@ -232,44 +205,41 @@ function RoomPlayer() {
     if (data.action === 'play') videoRef.current.play().catch(() => {});
     else if (data.action === 'pause') videoRef.current.pause();
     else if (data.action === 'seek') {
-        if (Math.abs(videoRef.current.currentTime - data.data.currentTime) > 1) {
-            videoRef.current.currentTime = data.data.currentTime;
-        }
+        if (Math.abs(videoRef.current.currentTime - data.data.currentTime) > 1) videoRef.current.currentTime = data.data.currentTime;
     }
     setTimeout(() => { isRemoteUpdate.current = false; }, 500);
   };
 
   const handleVideoLoadedMetadata = () => {
-      if (pendingSync.current && !hasSyncedInitial.current) {
-          applySyncData(pendingSync.current);
-      }
+      if (pendingSync.current && !hasSyncedInitial.current) applySyncData(pendingSync.current);
   };
 
   const sendVideoEvent = (action) => {
     if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN || isRemoteUpdate.current) return;
-    wsRef.current.send(JSON.stringify({
-      type: action, 
-      currentTime: videoRef.current ? videoRef.current.currentTime : 0
-    }));
+    wsRef.current.send(JSON.stringify({ type: action, currentTime: videoRef.current ? videoRef.current.currentTime : 0 }));
   };
 
   const handleSendMessage = () => {
     if (!messageInput.trim() || !wsRef.current) return;
-    wsRef.current.send(JSON.stringify({
-      type: 'chat_message',
-      message: messageInput,
-      username: username
-    }));
+    wsRef.current.send(JSON.stringify({ type: 'chat_message', message: messageInput, username: username }));
     setMessageInput('');
   };
 
+  const handleUserClick = (targetUser) => {
+      const isOwner = room?.owner_name === username;
+      if (isOwner && targetUser !== username) {
+          if (window.confirm(`Выгнать пользователя ${targetUser}?`)) {
+              wsRef.current.send(JSON.stringify({ type: 'kick_user', username: targetUser }));
+          }
+      }
+  };
+
   if (loading) return <div className="loading">Загрузка...</div>;
-  
-  let videoSrc = null;
-  if (movie) {
-      if (movie.video) videoSrc = movie.video;
-      else if (movie.video_url) videoSrc = movie.video_url;
-  }
+
+  const videoSrc = room?.current_video_url;
+  const posterSrc = (room?.current_poster_url && !room.current_poster_url.includes('default')) ? room.current_poster_url : null;
+  const pageTitle = room?.current_title || room?.name;
+  const isOwner = room?.owner_name === username;
 
   return (
     <div className="room-player-page">
@@ -278,10 +248,11 @@ function RoomPlayer() {
             <div className="video-wrapper">
                 {videoSrc ? (
                     <video 
+                        key={videoSrc}
                         ref={videoRef}
                         controls 
                         className="main-video"
-                        poster={movie?.image || movie?.poster_url}
+                        poster={posterSrc}
                         onLoadedMetadata={handleVideoLoadedMetadata}
                         onPlay={() => sendVideoEvent('play')}
                         onPause={() => sendVideoEvent('pause')}
@@ -291,84 +262,95 @@ function RoomPlayer() {
                         <source src={videoSrc} type="video/mp4" />
                     </video>
                 ) : (
-                    <div className="no-video-placeholder"><h3>🎬 Фильм не выбран</h3></div>
+                    <div className="no-video-placeholder"><h3>🎬 Ничего не играет</h3></div>
                 )}
             </div>
-            
             <div className="video-info">
                 <h1>{room?.name}</h1>
                 <p className="movie-title">
-                   Фильм: <span>{movie?.title || 'Загрузка...'}</span>
+                   Сейчас: <span>{pageTitle}</span>
                    {isConnected ? <span style={{color:'#00b894', marginLeft:'15px'}}>● Онлайн</span> : null}
                 </p>
             </div>
         </div>
 
         <div className="sidebar">
-            <div className="sidebar-header">
-                <div style={{display: 'flex', alignItems: 'center', gap: '10px'}}>
-                    <h3>💬 Чат</h3>
-                    {/* Кнопка "Поделиться" */}
-                    <button 
-                        className="share-btn" 
-                        onClick={handleCopyLink}
-                        title="Копировать ссылку на комнату"
-                    >
-                        🔗
-                    </button>
-                </div>
-                <span className="online-count">Вы: {username}</span>
+            <div className="sidebar-tabs">
+                <button className={`tab-btn ${activeTab === 'chat' ? 'active' : ''}`} onClick={() => setActiveTab('chat')}>💬 Чат</button>
+                {room?.active_series && <button className={`tab-btn ${activeTab === 'episodes' ? 'active' : ''}`} onClick={() => setActiveTab('episodes')}>📺 Серии</button>}
+                <button className="share-icon-btn" onClick={handleCopyLink} title="Ссылка">🔗</button>
             </div>
-            <div className="chat-messages">
-                <div className="system-msg">Добро пожаловать в комнату!</div>
-                
-                {messages.map((msg, index) => {
-                    const isMyMsg = msg.username === username;
-                    return (
-                        <div key={index} className={`chat-msg ${isMyMsg ? 'my-msg' : ''}`}>
-                            <div className="chat-avatar-container">
-                                {msg.avatar ? (
-                                    <img src={msg.avatar} alt="ava" className="chat-avatar-img" />
-                                ) : (
-                                    <div className="chat-avatar-placeholder">
-                                        {msg.username ? msg.username[0].toUpperCase() : '?'}
-                                    </div>
-                                )}
-                            </div>
-                            <div className="chat-content">
-                                <span 
-                                    className="msg-user" 
-                                    style={isOwner && !isMyMsg ? {cursor: 'pointer', textDecoration: 'underline'} : {}}
-                                    onClick={() => handleUserClick(msg.username)}
-                                    title={isOwner && !isMyMsg ? "Нажмите, чтобы выгнать" : ""}
-                                >
-                                    {msg.username}
-                                </span>
-                                <span className="msg-text">{msg.message}</span>
-                            </div>
-                        </div>
-                    );
-                })}
-            </div>
-            <div className="chat-input-area">
-                {isGuest ? (
-                    <div style={{padding: '10px', color: '#777', textAlign: 'center'}}>
-                        <span onClick={() => navigate('/login')} style={{cursor:'pointer', textDecoration:'underline'}}>Войдите</span>
+
+            {activeTab === 'chat' && (
+                <>
+                    <div className="chat-messages">
+                        {messages.map((msg, index) => {
+                            const isMyMsg = msg.username === username;
+                            // Обработка аватарки при рендере
+                            const cleanAvatar = getAvatarUrl(msg.avatar); 
+                            
+                            return (
+                                <div key={index} className={`chat-msg ${msg.type === 'system' ? 'system-msg' : (isMyMsg ? 'my-msg' : '')}`}>
+                                    {msg.type !== 'system' && (
+                                        <>
+                                            <div className="chat-avatar-container">
+                                                {cleanAvatar ? (
+                                                    <img src={cleanAvatar} alt="ava" className="chat-avatar-img" />
+                                                ) : (
+                                                    <div className="chat-avatar-placeholder">
+                                                        {msg.username ? msg.username[0].toUpperCase() : '?'}
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <div className="chat-content">
+                                                <span 
+                                                    className="msg-user"
+                                                    style={isOwner && !isMyMsg ? {cursor: 'pointer', textDecoration: 'underline'} : {}}
+                                                    onClick={() => handleUserClick(msg.username)}
+                                                >
+                                                    {msg.username}
+                                                </span>
+                                                <span className="msg-text">{msg.message}</span>
+                                            </div>
+                                        </>
+                                    )}
+                                    {msg.type === 'system' && msg.message}
+                                </div>
+                            );
+                        })}
                     </div>
-                ) : (
-                    <>
-                        <input 
-                            type="text" 
-                            placeholder="Написать сообщение..." 
-                            value={messageInput}
-                            onChange={(e) => setMessageInput(e.target.value)}
-                            onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-                            disabled={!isConnected}
-                        />
-                        <button onClick={handleSendMessage} disabled={!isConnected}>➤</button>
-                    </>
-                )}
-            </div>
+                    <div className="chat-input-area">
+                        {isGuest ? (
+                            <div style={{color: '#777', padding: '10px'}}>Войдите, чтобы писать</div>
+                        ) : (
+                            <>
+                                <input value={messageInput} onChange={e => setMessageInput(e.target.value)} onKeyPress={e => e.key === 'Enter' && handleSendMessage()} placeholder="Сообщение..." />
+                                <button onClick={handleSendMessage}>➤</button>
+                            </>
+                        )}
+                    </div>
+                </>
+            )}
+
+            {activeTab === 'episodes' && room?.active_series && (
+                <div className="episodes-list">
+                    <h3 style={{padding: '10px', margin: 0, borderBottom: '1px solid #333'}}>{room.active_series.title}</h3>
+                    <div className="episodes-scroll">
+                        {room.active_series.episodes.map(ep => (
+                            <div 
+                                key={ep.id} 
+                                className={`episode-item ${room.active_episode?.id === ep.id ? 'active' : ''}`}
+                                onClick={() => isOwner ? handleChangeEpisode(ep.id) : toast('Только владелец')}
+                                style={{cursor: isOwner ? 'pointer' : 'default'}}
+                            >
+                                <div className="ep-number">#{ep.number}</div>
+                                <div className="ep-title">{ep.title || `Серия ${ep.number}`}</div>
+                                {room.active_episode?.id === ep.id && <span>▶</span>}
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
         </div>
       </div>
     </div>

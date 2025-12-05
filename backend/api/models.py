@@ -82,6 +82,28 @@ class Movie(models.Model):
     def __str__(self):
         return self.title
 
+class Series(models.Model):
+    title = models.CharField(max_length=255, verbose_name="Название сериала")
+    description = models.TextField(max_length=1000, verbose_name="Описание")
+    image = models.ImageField(upload_to='series_images/', default='movie_images/default.jpg', verbose_name="Постер")
+    
+    uploaded_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    is_private = models.BooleanField(default=False)
+
+    def __str__(self):
+        return self.title
+
+class Episode(models.Model):
+    series = models.ForeignKey(Series, on_delete=models.CASCADE, related_name='episodes', verbose_name="Сериал")
+    number = models.PositiveIntegerField(verbose_name="Номер серии")
+    title = models.CharField(max_length=255, blank=True, verbose_name="Название серии")
+    video = models.FileField(upload_to='episodes/', verbose_name="Файл видео")
+    
+    class Meta:
+        ordering = ['number'] # Чтобы серии шли по порядку
+
+    def __str__(self):
+        return f"{self.series.title} - Эпизод {self.number}"
 
 # --- Комнаты и Сообщения ---
 
@@ -94,6 +116,9 @@ class Room(models.Model):
     max_participants = models.PositiveIntegerField(default=10)
     password = models.CharField(max_length=255, blank=True, null=True) # Можно оставить пустым для открытых комнат
     
+    active_series = models.ForeignKey(Series, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Текущий сериал")
+    active_episode = models.ForeignKey(Episode, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Текущая серия")
+
     # Владелец комнаты
     owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name="owned_rooms")
     
